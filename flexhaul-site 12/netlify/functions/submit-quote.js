@@ -12,7 +12,8 @@
 // npm packages required (see package.json): twilio, @netlify/blobs
 
 const twilio = require("twilio");
-const { getStore } = require("@netlify/blobs");
+const { getLeadsStore } = require("./_blobStore");
+const { getCustomersStore, findOrCreateCustomer } = require("./_customerStore");
 
 exports.handler = async function (event) {
   if (event.httpMethod !== "POST") {
@@ -31,9 +32,36 @@ exports.handler = async function (event) {
     return { statusCode: 400, body: "Missing required fields" };
   }
 
+  // Revenue/source fields didn't exist when this lead's payload was built
+  // client-side — fill in sane defaults so every job has them from here on.
+  if (!lead.leadSource) lead.leadSource = "Website";
+  if (typeof lead.quotedPrice !== "number") lead.quotedPrice = null;
+  lead.finalPrice = null;
+  lead.completedAt = null;
+
   // --- 1. Save the lead so the admin dashboard and the reminder job can see it ---
-  const store = getStore("flexhaul-leads");
+  const store = getLeadsStore();
   await store.setJSON(lead.id, lead);
+
+  // --- 1b. Link this job to a customer profile (existing or new) ---
+  try {
+    const custStore = getCustomersStore();
+    const customer = await findOrCreateCustomer(custStore, {
+      jobId: lead.id,
+      name: lead.name,
+      phone: lead.phone,
+      email: lead.email,
+      address: lead.address,
+      propertyType: lead.propertyType,
+      leadSource: lead.leadSource,
+    });
+    lead.customerId = customer.id;
+    await store.setJSON(lead.id, lead);
+  } catch (err) {
+    // Don't fail the whole submission over customer linking — the job
+    // itself is already saved and visible on the dashboard either way.
+    console.error("Customer linking failed:", err.message);
+  }
 
   // --- 2. Send the instant SMS confirmation, only if the customer opted in ---
   let smsResult = "not requested";

@@ -13,7 +13,7 @@
 //                     The admin dashboard will ask for this once per
 //                     browser session and send it with every request.
 
-const { getStore } = require("@netlify/blobs");
+const { getLeadsStore } = require("./_blobStore");
 
 exports.handler = async function (event) {
   if (event.httpMethod !== "GET") {
@@ -26,7 +26,7 @@ exports.handler = async function (event) {
   }
 
   try {
-    const store = getStore("flexhaul-leads");
+    const store = getLeadsStore();
     const { blobs } = await store.list();
 
     const leads = [];

@@ -12,10 +12,10 @@
 //   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER
 
 const twilio = require("twilio");
-const { getStore } = require("@netlify/blobs");
+const { getLeadsStore } = require("./_blobStore");
 
 exports.handler = async function () {
-  const store = getStore("flexhaul-leads");
+  const store = getLeadsStore();
   const client = twilio(
     process.env.TWILIO_ACCOUNT_SID,
     process.env.TWILIO_AUTH_TOKEN
