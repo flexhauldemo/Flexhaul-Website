@@ -68,6 +68,60 @@
   }
   .setup-note svg{ width:20px; height:20px; flex-shrink:0; color:var(--rust); margin-top:2px; }
   .setup-note code{ background:rgba(28,24,18,0.08); padding:1px 6px; border-radius:4px; font-family:var(--font-mono); font-size:0.86em; }
+
+  /* View tabs (Jobs / Customers) ------------------------------------- */
+  .view-tabs{ display:flex; gap:6px; margin-bottom:20px; border-bottom:1.5px solid rgba(28,24,18,0.1); }
+  .view-tab{
+    background:none; border:none; padding:10px 4px; margin-right:18px; font-family:var(--font-display);
+    font-weight:600; font-size:0.95rem; color:#6b654e; cursor:pointer; border-bottom:2.5px solid transparent;
+    margin-bottom:-1.5px;
+  }
+  .view-tab.active{ color:var(--rust); border-bottom-color:var(--rust); }
+
+  .revenue-strip{ display:flex; gap:24px; flex-wrap:wrap; margin-bottom:20px; font-size:0.9rem; color:#4a4536; }
+  .revenue-strip strong{ font-family:var(--font-display); color:var(--rust); font-size:1.05rem; }
+
+  /* Price + source inputs inside the jobs table ----------------------- */
+  .price-input{ width:78px; border:1.5px solid #d8d0b8; border-radius:6px; padding:5px 7px; font-size:0.85rem; font-family:var(--font-mono); }
+  .price-label{ font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:#8a8468; display:block; margin-bottom:2px; }
+  .price-cell{ display:flex; flex-direction:column; gap:6px; }
+
+  /* Customers table ----------------------------------------------------- */
+  table.customers{ width:100%; border-collapse:collapse; font-size:0.92rem; min-width:820px; }
+  table.customers th{
+    text-align:left; padding:14px 16px; background:#e5ded0; font-family:var(--font-display);
+    text-transform:uppercase; font-size:0.76rem; letter-spacing:0.06em; color:#4a4536;
+  }
+  table.customers td{ padding:14px 16px; border-top:1px solid rgba(28,24,18,0.08); vertical-align:top; }
+  table.customers tr.cust-row{ cursor:pointer; }
+  table.customers tr.cust-row:hover td{ background:rgba(245,163,0,0.05); }
+  .cust-detail-row td{ background:#faf8f2; padding:20px; }
+  .cust-detail-row{ display:none; }
+  .cust-detail-row.open{ display:table-row; }
+  .tag-chip{
+    display:inline-flex; align-items:center; gap:5px; font-family:var(--font-mono); font-size:0.74rem;
+    padding:3px 9px 3px 10px; border-radius:999px; margin:2px 4px 2px 0; background:rgba(201,89,13,0.12); color:var(--rust);
+  }
+  .tag-chip button{ background:none; border:none; color:inherit; cursor:pointer; padding:0; line-height:1; font-size:0.95em; }
+  .tag-add-input{ border:1.5px dashed #d8d0b8; border-radius:6px; padding:5px 10px; font-size:0.8rem; width:130px; }
+  .notes-box{ width:100%; min-height:80px; border:1.5px solid #d8d0b8; border-radius:8px; padding:10px 12px; font-size:0.9rem; font-family:inherit; resize:vertical; }
+  .cust-job-list{ margin-top:12px; font-size:0.85rem; }
+  .cust-job-list .job-row{ display:flex; justify-content:space-between; padding:7px 0; border-top:1px solid rgba(28,24,18,0.08); }
+
+  /* New Lead modal ------------------------------------------------------ */
+  .modal-overlay{ display:none; position:fixed; inset:0; background:rgba(20,18,14,0.5); z-index:50; align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto; }
+  .modal-overlay.open{ display:flex; }
+  .modal-box{ background:var(--off-white); border-radius:12px; padding:28px; width:100%; max-width:520px; }
+  .modal-box h2{ font-family:var(--font-display); font-size:1.3rem; margin-bottom:4px; }
+  .modal-box .modal-sub{ font-size:0.86rem; color:#6b654e; margin-bottom:18px; }
+  .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .form-grid label{ font-size:0.8rem; font-weight:600; color:#4a4536; display:block; margin-bottom:5px; }
+  .form-grid input, .form-grid select, .form-grid textarea{
+    width:100%; border:1.5px solid #d8d0b8; border-radius:6px; padding:9px 12px; font-size:0.9rem; font-family:inherit; background:#fff;
+  }
+  .form-grid .span-2{ grid-column:1 / -1; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
+  .local-mode-note{ font-size:0.86rem; color:#6b654e; background:#f0ede2; border-radius:8px; padding:14px 16px; }
 </style>
 </head>
 <body>
@@ -194,6 +248,7 @@
         <span id="modeBadge" style="display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:0.78rem; margin-top:8px; padding:4px 10px; border-radius:999px; background:rgba(111,106,94,0.12); color:#4a4536;">● Local demo data</span>
       </div>
       <div class="row-actions">
+        <button class="btn btn-ghost btn-sm" id="newLeadBtn"><svg><use href="#icon-plus"/></svg> New Lead</button>
         <button class="btn btn-ghost btn-sm" id="connectBtn"><svg><use href="#icon-shield"/></svg> Connect Live Data</button>
         <button class="btn btn-ghost btn-sm" id="refreshBtn" style="display:none;"><svg><use href="#icon-clock"/></svg> Refresh</button>
         <button class="btn btn-ghost btn-sm" id="exportBtn"><svg><use href="#icon-download"/></svg> Export CSV</button>
@@ -209,6 +264,18 @@
       <div class="stat-card"><div class="num" id="statCompleted">0</div><div class="lbl">Completed</div></div>
     </div>
 
+    <div class="revenue-strip" id="revenueStrip">
+      <span>This month's revenue: <strong id="revThisMonth">$0</strong></span>
+      <span>Avg. ticket: <strong id="revAvgTicket">$0</strong></span>
+      <span>Jobs completed: <strong id="revJobsCompleted">0</strong></span>
+    </div>
+
+    <div class="view-tabs">
+      <button class="view-tab active" id="tabJobs">Jobs</button>
+      <button class="view-tab" id="tabCustomers">Customers</button>
+    </div>
+
+    <div id="jobsView">
     <div class="toolbar">
       <select id="filterService">
         <option value="">All Services</option>
@@ -236,6 +303,8 @@
             <th>Customer</th>
             <th>Service</th>
             <th>Details</th>
+            <th>Source</th>
+            <th>Price</th>
             <th>Contact Pref.</th>
             <th>Status</th>
             <th></th>
@@ -249,6 +318,92 @@
         <p>New requests will show up here once submitted — local demo data on this device, or live bookings once you connect.</p>
       </div>
     </div>
+    </div><!-- /jobsView -->
+
+    <div id="customersView" style="display:none;">
+      <div id="customersLiveOnlyNote" class="local-mode-note" style="margin-bottom:20px;">
+        Customer profiles (notes, tags, and job history) are stored on the live server, so this view needs a live data
+        connection. Click <strong>"Connect Live Data"</strong> above and enter your admin key to use it.
+      </div>
+      <div class="toolbar" id="customersToolbar" style="display:none;">
+        <input type="search" id="customerSearchBox" placeholder="Search name, phone, or tag">
+        <div class="spacer"></div>
+        <span class="small-note" id="customerResultCount"></span>
+      </div>
+      <div class="lead-table-wrap" id="customersTableWrap" style="display:none;">
+        <table class="customers" id="customersTable">
+          <thead>
+            <tr>
+              <th>Customer</th>
+              <th>Type / Tags</th>
+              <th>Jobs</th>
+              <th>Lifetime Revenue</th>
+              <th>Last Job</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="customersBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NEW LEAD MODAL ========================================================= -->
+<div class="modal-overlay" id="newLeadOverlay">
+  <div class="modal-box">
+    <h2>Log a New Lead</h2>
+    <div class="modal-sub">For jobs that come in by phone, text, or referral rather than the website form.</div>
+    <div class="local-mode-note" id="newLeadLocalNote" style="display:none; margin-bottom:16px;">
+      You're in local demo mode, so this will be saved to this browser only, without a lead source or price
+      attached — connect live data first to log it for real.
+    </div>
+    <form id="newLeadForm">
+      <div class="form-grid">
+        <div><label for="nlName">Name *</label><input type="text" id="nlName" required></div>
+        <div><label for="nlPhone">Phone *</label><input type="tel" id="nlPhone" required></div>
+        <div><label for="nlEmail">Email</label><input type="email" id="nlEmail"></div>
+        <div><label for="nlAddress">Property Address</label><input type="text" id="nlAddress"></div>
+        <div>
+          <label for="nlService">Service</label>
+          <select id="nlService">
+            <option>Junk Removal</option>
+            <option>Light Demolition</option>
+            <option>Not Sure / Need Advice</option>
+          </select>
+        </div>
+        <div>
+          <label for="nlPropertyType">Property Type</label>
+          <select id="nlPropertyType">
+            <option>Residential</option>
+            <option>Commercial / Property Management</option>
+          </select>
+        </div>
+        <div>
+          <label for="nlSource">Lead Source</label>
+          <select id="nlSource">
+            <option>Furniture Store Partnership</option>
+            <option>Real Estate Referral</option>
+            <option>Landscaper Referral</option>
+            <option>Word of Mouth</option>
+            <option>Website</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div>
+          <label for="nlQuoted">Quoted Price ($)</label>
+          <input type="number" id="nlQuoted" min="0" step="1">
+        </div>
+        <div class="span-2">
+          <label for="nlDescription">Description</label>
+          <textarea id="nlDescription" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost btn-sm" id="newLeadCancel">Cancel</button>
+        <button type="submit" class="btn btn-sm" style="background:var(--rust); color:#fff; border-color:var(--rust);">Save Lead</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -265,10 +420,27 @@
   var connectBtn = document.getElementById('connectBtn');
   var refreshBtn = document.getElementById('refreshBtn');
 
+  var jobsView = document.getElementById('jobsView');
+  var customersView = document.getElementById('customersView');
+  var tabJobs = document.getElementById('tabJobs');
+  var tabCustomers = document.getElementById('tabCustomers');
+  var customersLiveOnlyNote = document.getElementById('customersLiveOnlyNote');
+  var customersToolbar = document.getElementById('customersToolbar');
+  var customersTableWrap = document.getElementById('customersTableWrap');
+  var customersBody = document.getElementById('customersBody');
+  var newLeadBtn = document.getElementById('newLeadBtn');
+  var newLeadOverlay = document.getElementById('newLeadOverlay');
+  var newLeadForm = document.getElementById('newLeadForm');
+  var newLeadCancel = document.getElementById('newLeadCancel');
+  var newLeadLocalNote = document.getElementById('newLeadLocalNote');
+
   var KEY_STORAGE = 'flexhaul_admin_key';
   var state = {
     mode: 'local',   // 'local' or 'live'
-    liveLeads: []
+    view: 'jobs',     // 'jobs' or 'customers'
+    liveLeads: [],
+    customers: [],
+    customersLoaded: false
   };
 
   function fmtDate(iso){
@@ -307,6 +479,10 @@
       dataModeNote.style.display = 'none';
       connectBtn.style.display = 'none';
       refreshBtn.style.display = '';
+      customersLiveOnlyNote.style.display = 'none';
+      customersToolbar.style.display = '';
+      customersTableWrap.style.display = '';
+      if(state.view === 'customers' && !state.customersLoaded) fetchCustomers();
     } else {
       modeBadge.textContent = '● Local demo data';
       modeBadge.style.background = 'rgba(111,106,94,0.12)';
@@ -314,6 +490,9 @@
       dataModeNote.style.display = '';
       connectBtn.style.display = '';
       refreshBtn.style.display = 'none';
+      customersLiveOnlyNote.style.display = '';
+      customersToolbar.style.display = 'none';
+      customersTableWrap.style.display = 'none';
     }
   }
 
@@ -362,6 +541,67 @@
     if(key) tryFetchLive(key, { silent: false });
   });
 
+  function updateRevenueStrip(all){
+    var now = new Date();
+    var thisMonth = all.filter(function(l){
+      if(typeof l.finalPrice !== 'number' || !l.completedAt) return false;
+      var d = new Date(l.completedAt);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    });
+    var total = thisMonth.reduce(function(sum,l){ return sum + l.finalPrice; }, 0);
+    var avg = thisMonth.length ? total / thisMonth.length : 0;
+    document.getElementById('revThisMonth').textContent = '$' + Math.round(total).toLocaleString();
+    document.getElementById('revAvgTicket').textContent = '$' + Math.round(avg).toLocaleString();
+    document.getElementById('revJobsCompleted').textContent = thisMonth.length;
+  }
+
+  // Shared PATCH helper for editable job fields (status, leadSource,
+  // quotedPrice, finalPrice) — all go through manage-lead.js the same way.
+  function patchLead(id, fields, controlToDisable, onSuccess){
+    var key = localStorage.getItem(KEY_STORAGE);
+    if(controlToDisable) controlToDisable.disabled = true;
+    var body = Object.assign({ id: id }, fields);
+    fetch('/.netlify/functions/manage-lead', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+      body: JSON.stringify(body)
+    }).then(function(res){
+      if(controlToDisable) controlToDisable.disabled = false;
+      if(!res.ok){ alert('Could not save that change on the server. Please try again.'); return; }
+      if(onSuccess) onSuccess();
+    }).catch(function(err){
+      if(controlToDisable) controlToDisable.disabled = false;
+      alert('Could not reach the server to save that change.');
+      console.warn(err);
+    });
+  }
+
+  // Small labeled number input used for the Quoted/Final price cells.
+  // Commits on blur (not on every keystroke) so a half-typed number never
+  // fires a save.
+  function buildPriceInput(label, value, onCommit){
+    var wrap = document.createElement('div');
+    wrap.className = 'price-cell';
+    var lbl = document.createElement('span');
+    lbl.className = 'price-label';
+    lbl.textContent = label;
+    var input = document.createElement('input');
+    input.type = 'number';
+    input.min = '0';
+    input.step = '1';
+    input.className = 'price-input';
+    input.placeholder = '$';
+    if(typeof value === 'number') input.value = value;
+    input.addEventListener('blur', function(){
+      var raw = input.value.trim();
+      var val = raw === '' ? null : Number(raw);
+      onCommit(val);
+    });
+    wrap.appendChild(lbl);
+    wrap.appendChild(input);
+    return wrap;
+  }
+
   function render(){
     var all = getCurrentLeads();
     var svcFilter = document.getElementById('filterService').value;
@@ -383,6 +623,7 @@
     document.getElementById('statScheduled').textContent = all.filter(function(l){return l.status==='scheduled';}).length;
     document.getElementById('statCompleted').textContent = all.filter(function(l){return l.status==='completed';}).length;
     document.getElementById('resultCount').textContent = filtered.length + ' of ' + all.length + ' shown';
+    updateRevenueStrip(all);
 
     tbody.innerHTML = '';
 
@@ -396,7 +637,7 @@
 
     if(filtered.length === 0){
       var trEmpty = document.createElement('tr');
-      trEmpty.innerHTML = '<td colspan="7" style="text-align:center; padding:40px; color:#6b654e;">No requests match your filters.</td>';
+      trEmpty.innerHTML = '<td colspan="9" style="text-align:center; padding:40px; color:#6b654e;">No requests match your filters.</td>';
       tbody.appendChild(trEmpty);
       return;
     }
@@ -414,11 +655,56 @@
         '<td><div class="lead-name">'+escapeHtml(l.name)+'</div><div class="small-note">'+escapeHtml(l.phone)+'</div><div class="small-note">'+escapeHtml(l.email)+'</div></td>'+
         '<td><span class="svc-badge '+serviceBadgeClass(l.service)+'">'+escapeHtml(l.service)+'</span><div class="small-note" style="margin-top:6px;">'+escapeHtml(l.propertyType||'—')+'</div></td>'+
         '<td>'+catsHtml+smsHtml+descHtml+pickupHtml+'</td>'+
+        '<td></td>'+
+        '<td></td>'+
         '<td>'+escapeHtml(l.contactMethod||'—')+'</td>'+
         '<td></td>'+
         '<td></td>';
 
-      var statusTd = tr.children[5];
+      // --- Source cell (editable only when connected to live data) ---
+      var sourceTd = tr.children[4];
+      if(state.mode === 'live'){
+        var srcSelect = document.createElement('select');
+        srcSelect.className = 'status-select';
+        ['Furniture Store Partnership','Real Estate Referral','Landscaper Referral','Word of Mouth','Website','Other'].forEach(function(s){
+          var opt = document.createElement('option');
+          opt.value = s; opt.textContent = s;
+          if(s === l.leadSource) opt.selected = true;
+          srcSelect.appendChild(opt);
+        });
+        srcSelect.addEventListener('change', function(){
+          patchLead(l.id, { leadSource: srcSelect.value }, srcSelect, function(){
+            var found = state.liveLeads.find(function(x){ return x.id === l.id; });
+            if(found) found.leadSource = srcSelect.value;
+          });
+        });
+        sourceTd.appendChild(srcSelect);
+      } else {
+        sourceTd.textContent = l.leadSource || '—';
+        sourceTd.className = 'small-note';
+      }
+
+      // --- Price cell (editable only when connected to live data) ---
+      var priceTd = tr.children[5];
+      if(state.mode === 'live'){
+        priceTd.appendChild(buildPriceInput('Quoted', l.quotedPrice, function(val){
+          patchLead(l.id, { quotedPrice: val }, null, function(){
+            var found = state.liveLeads.find(function(x){ return x.id === l.id; });
+            if(found) found.quotedPrice = val;
+          });
+        }));
+        priceTd.appendChild(buildPriceInput('Final', l.finalPrice, function(val){
+          patchLead(l.id, { finalPrice: val }, null, function(){
+            var found = state.liveLeads.find(function(x){ return x.id === l.id; });
+            if(found) found.finalPrice = val;
+            updateRevenueStrip(getCurrentLeads());
+          });
+        }));
+      } else {
+        priceTd.innerHTML = '<div class="small-note">Quoted: '+(l.quotedPrice!=null?'$'+l.quotedPrice:'—')+'</div><div class="small-note">Final: '+(l.finalPrice!=null?'$'+l.finalPrice:'—')+'</div>';
+      }
+
+      var statusTd = tr.children[7];
       var select = document.createElement('select');
       select.className = 'status-select status-'+l.status;
       ['new','contacted','scheduled','completed'].forEach(function(s){
@@ -453,7 +739,7 @@
       });
       statusTd.appendChild(select);
 
-      var actionsTd = tr.children[6];
+      var actionsTd = tr.children[8];
       var delBtn = document.createElement('button');
       delBtn.className = 'icon-btn';
       delBtn.title = 'Delete this request';
@@ -522,6 +808,274 @@
       FlexLeads.addLead(sample);
     });
     render();
+  });
+
+  // --- View tabs ---------------------------------------------------------
+  tabJobs.addEventListener('click', function(){
+    state.view = 'jobs';
+    tabJobs.classList.add('active');
+    tabCustomers.classList.remove('active');
+    jobsView.style.display = '';
+    customersView.style.display = 'none';
+  });
+
+  tabCustomers.addEventListener('click', function(){
+    state.view = 'customers';
+    tabCustomers.classList.add('active');
+    tabJobs.classList.remove('active');
+    jobsView.style.display = 'none';
+    customersView.style.display = '';
+    if(state.mode === 'live' && !state.customersLoaded) fetchCustomers();
+  });
+
+  document.getElementById('customerSearchBox').addEventListener('input', renderCustomers);
+
+  // --- Customers data ------------------------------------------------------
+  function patchCustomer(id, fields, controlToDisable, onSuccess){
+    var key = localStorage.getItem(KEY_STORAGE);
+    if(controlToDisable) controlToDisable.disabled = true;
+    var body = Object.assign({ id: id }, fields);
+    fetch('/.netlify/functions/manage-customer', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+      body: JSON.stringify(body)
+    }).then(function(res){
+      if(controlToDisable) controlToDisable.disabled = false;
+      if(!res.ok){ alert('Could not save on the server. Please try again.'); return; }
+      if(onSuccess) onSuccess();
+    }).catch(function(err){
+      if(controlToDisable) controlToDisable.disabled = false;
+      alert('Could not reach the server to save that change.');
+      console.warn(err);
+    });
+  }
+
+  function fetchCustomers(){
+    var key = localStorage.getItem(KEY_STORAGE);
+    if(!key) return;
+    customersBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#6b654e;">Loading…</td></tr>';
+    fetch('/.netlify/functions/get-customers', {
+      headers: { 'x-admin-key': key }
+    }).then(function(res){
+      if(!res.ok){
+        customersBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#6b654e;">Could not load customers.</td></tr>';
+        return null;
+      }
+      return res.json();
+    }).then(function(data){
+      if(!data) return;
+      state.customers = data.customers || [];
+      state.customersLoaded = true;
+      renderCustomers();
+    }).catch(function(err){
+      console.warn(err);
+      customersBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#6b654e;">Could not reach the server.</td></tr>';
+    });
+  }
+
+  function buildCustomerDetail(container, c){
+    var notesLabel = document.createElement('div');
+    notesLabel.className = 'price-label';
+    notesLabel.textContent = 'Notes';
+    var notesBox = document.createElement('textarea');
+    notesBox.className = 'notes-box';
+    notesBox.value = c.notes || '';
+    var saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'btn btn-ghost btn-sm';
+    saveBtn.style.marginTop = '8px';
+    saveBtn.textContent = 'Save Notes';
+    saveBtn.addEventListener('click', function(){
+      patchCustomer(c.id, { notes: notesBox.value }, saveBtn, function(){ c.notes = notesBox.value; });
+    });
+
+    var tagsWrap = document.createElement('div');
+    tagsWrap.style.marginTop = '16px';
+    var tagsLabel = document.createElement('div');
+    tagsLabel.className = 'price-label';
+    tagsLabel.textContent = 'Tags';
+    var tagsList = document.createElement('div');
+    function renderTags(){
+      tagsList.innerHTML = '';
+      (c.tags||[]).forEach(function(t){
+        var chip = document.createElement('span');
+        chip.className = 'tag-chip';
+        var span = document.createElement('span');
+        span.textContent = t;
+        var rm = document.createElement('button');
+        rm.type = 'button';
+        rm.textContent = '\u00d7';
+        rm.title = 'Remove tag';
+        rm.addEventListener('click', function(){
+          c.tags = (c.tags||[]).filter(function(x){ return x !== t; });
+          patchCustomer(c.id, { tags: c.tags }, null, renderTags);
+        });
+        chip.appendChild(span);
+        chip.appendChild(rm);
+        tagsList.appendChild(chip);
+      });
+      var addInput = document.createElement('input');
+      addInput.type = 'text';
+      addInput.className = 'tag-add-input';
+      addInput.placeholder = '+ add tag, Enter';
+      addInput.addEventListener('keydown', function(e){
+        if(e.key === 'Enter' && addInput.value.trim()){
+          e.preventDefault();
+          c.tags = (c.tags||[]).concat([addInput.value.trim()]);
+          patchCustomer(c.id, { tags: c.tags }, null, renderTags);
+        }
+      });
+      tagsList.appendChild(addInput);
+    }
+    renderTags();
+    tagsWrap.appendChild(tagsLabel);
+    tagsWrap.appendChild(tagsList);
+
+    var jobsWrap = document.createElement('div');
+    jobsWrap.className = 'cust-job-list';
+    var jobsLabel = document.createElement('div');
+    jobsLabel.className = 'price-label';
+    jobsLabel.textContent = 'Job History';
+    jobsWrap.appendChild(jobsLabel);
+    if((c.jobs||[]).length === 0){
+      var noJobs = document.createElement('div');
+      noJobs.className = 'small-note';
+      noJobs.style.paddingTop = '6px';
+      noJobs.textContent = 'No linked jobs yet.';
+      jobsWrap.appendChild(noJobs);
+    }
+    (c.jobs||[]).forEach(function(j){
+      var row = document.createElement('div');
+      row.className = 'job-row';
+      var priceLabel = j.finalPrice != null ? ('$'+j.finalPrice) : (j.quotedPrice != null ? ('Quoted $'+j.quotedPrice) : '—');
+      row.innerHTML = '<span>'+fmtDate(j.createdAt)+' \u00b7 '+escapeHtml(j.service||'—')+' \u00b7 '+escapeHtml(j.status)+'</span><span>'+priceLabel+'</span>';
+      jobsWrap.appendChild(row);
+    });
+
+    container.appendChild(notesLabel);
+    container.appendChild(notesBox);
+    container.appendChild(saveBtn);
+    container.appendChild(tagsWrap);
+    container.appendChild(jobsWrap);
+  }
+
+  function renderCustomers(){
+    var q = document.getElementById('customerSearchBox').value.trim().toLowerCase();
+    var filtered = state.customers.filter(function(c){
+      if(!q) return true;
+      var hay = [c.name, c.phone, c.email].concat(c.tags||[]).join(' ').toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+    document.getElementById('customerResultCount').textContent = filtered.length + ' of ' + state.customers.length + ' shown';
+
+    customersBody.innerHTML = '';
+    if(filtered.length === 0){
+      customersBody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#6b654e;">No customers found.</td></tr>';
+      return;
+    }
+
+    filtered.forEach(function(c){
+      var tr = document.createElement('tr');
+      tr.className = 'cust-row';
+      var tagsHtml = (c.tags||[]).map(function(t){ return '<span class="lead-tag">'+escapeHtml(t)+'</span>'; }).join('');
+      tr.innerHTML =
+        '<td><div class="lead-name">'+escapeHtml(c.name)+'</div><div class="small-note">'+escapeHtml(c.phone)+'</div><div class="small-note">'+escapeHtml(c.email)+'</div></td>'+
+        '<td><div class="small-note">'+escapeHtml(c.customerType||'—')+'</div><div>'+tagsHtml+'</div></td>'+
+        '<td>'+c.jobCount+'</td>'+
+        '<td>$'+Math.round(c.lifetimeRevenue).toLocaleString()+'</td>'+
+        '<td>'+(c.lastJobAt ? fmtDate(c.lastJobAt) : '—')+'</td>'+
+        '<td><svg style="width:15px;height:15px;color:#6b654e;"><use href="#icon-chevron-right"/></svg></td>';
+
+      var detailTr = document.createElement('tr');
+      detailTr.className = 'cust-detail-row';
+      var detailTd = document.createElement('td');
+      detailTd.colSpan = 6;
+      detailTr.appendChild(detailTd);
+      buildCustomerDetail(detailTd, c);
+
+      tr.addEventListener('click', function(){
+        detailTr.classList.toggle('open');
+      });
+
+      customersBody.appendChild(tr);
+      customersBody.appendChild(detailTr);
+    });
+  }
+
+  // --- New Lead modal ------------------------------------------------------
+  newLeadBtn.addEventListener('click', function(){
+    newLeadLocalNote.style.display = state.mode === 'live' ? 'none' : '';
+    newLeadOverlay.classList.add('open');
+  });
+  newLeadCancel.addEventListener('click', function(){
+    newLeadOverlay.classList.remove('open');
+    newLeadForm.reset();
+  });
+  newLeadOverlay.addEventListener('click', function(e){
+    if(e.target === newLeadOverlay){
+      newLeadOverlay.classList.remove('open');
+      newLeadForm.reset();
+    }
+  });
+
+  newLeadForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    var name = document.getElementById('nlName').value.trim();
+    var phone = document.getElementById('nlPhone').value.trim();
+    if(!name || !phone) return;
+
+    var quotedRaw = document.getElementById('nlQuoted').value.trim();
+    var payload = {
+      name: name,
+      phone: phone,
+      email: document.getElementById('nlEmail').value.trim(),
+      address: document.getElementById('nlAddress').value.trim(),
+      service: document.getElementById('nlService').value,
+      propertyType: document.getElementById('nlPropertyType').value,
+      leadSource: document.getElementById('nlSource').value,
+      quotedPrice: quotedRaw === '' ? null : Number(quotedRaw),
+      description: document.getElementById('nlDescription').value.trim(),
+      contactMethod: 'Phone'
+    };
+
+    var submitBtn = newLeadForm.querySelector('button[type=submit]');
+
+    if(state.mode === 'live'){
+      var key = localStorage.getItem(KEY_STORAGE);
+      submitBtn.disabled = true;
+      fetch('/.netlify/functions/create-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+        body: JSON.stringify(payload)
+      }).then(function(res){
+        submitBtn.disabled = false;
+        if(!res.ok){ alert('Could not save this lead on the server. Please try again.'); return null; }
+        return res.json();
+      }).then(function(data){
+        if(!data) return;
+        state.liveLeads.unshift(data.lead);
+        state.customersLoaded = false; // Customers view will refetch to pick up this job
+        newLeadOverlay.classList.remove('open');
+        newLeadForm.reset();
+        render();
+      }).catch(function(err){
+        submitBtn.disabled = false;
+        alert('Could not reach the server to save this lead.');
+        console.warn(err);
+      });
+    } else {
+      var localLead = Object.assign({
+        createdAt: new Date().toISOString(),
+        status: 'new',
+        categories: [],
+        smsOptIn: false
+      }, payload);
+      localLead.id = FlexLeads.generateTicketId();
+      FlexLeads.addLead(localLead);
+      newLeadOverlay.classList.remove('open');
+      newLeadForm.reset();
+      render();
+    }
   });
 
   // On load: if we already have a saved admin key from a previous visit,

@@ -115,7 +115,7 @@
       <a href="contact.html" class="btn btn-primary btn-sm nav-cta-mobile">Get Free Quote</a>
     </nav>
     <div class="nav-right">
-      <a href="tel:+17650000000" class="nav-phone"><svg><use href="#icon-phone"/></svg>(765) 000-0000</a>
+      <a href="tel:+17658856137" class="nav-phone"><svg><use href="#icon-phone"/></svg>(765) 885-6137</a>
       <a href="contact.html" class="btn btn-primary btn-sm">Get Free Quote</a>
       <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">
         <svg><use href="#icon-menu"/></svg>
@@ -227,7 +227,7 @@
         </div>
         <div class="field">
           <label for="phone">Phone Number <span class="req">*</span></label>
-          <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="(765) 000-0000">
+          <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="(765) 885-6137">
         </div>
       </div>
 
@@ -326,7 +326,7 @@
       <div class="footer-col">
         <h5>Contact</h5>
         <ul>
-          <li><a href="tel:+17650000000">(765) 000-0000</a></li>
+          <li><a href="tel:+17658856137">(765) 885-6137</a></li>
           <li><a href="mailto:info@flexhaulanddemo.com">info@flexhaulanddemo.com</a></li>
           <li><span>Lafayette, IN &amp; surrounding communities</span></li>
           <li><span>Mon–Sat, 7 AM – 6 PM</span></li>
@@ -348,6 +348,34 @@
 <script>
 (function(){
   "use strict";
+
+  // This page's whole reason for existing is the in-store furniture
+  // partnership, so it defaults leadSource to that — unlike contact.html,
+  // which defaults to "Website" since it serves every kind of visitor.
+  // Still honors a ?source=/?src= override, in case this page ever gets
+  // linked from somewhere else (a different retail partner, say).
+  var SOURCE_SHORTCODES = {
+    'furniture': 'Furniture Store Partnership',
+    'realtor': 'Real Estate Referral',
+    'realestate': 'Real Estate Referral',
+    'landscaper': 'Landscaper Referral',
+    'landscaping': 'Landscaper Referral',
+    'referral': 'Word of Mouth'
+  };
+
+  function detectLeadSource(){
+    try{
+      var params = new URLSearchParams(window.location.search);
+      var raw = params.get('source') || params.get('src');
+      if(!raw) return 'Furniture Store Partnership';
+      var key = raw.toLowerCase().trim();
+      return SOURCE_SHORTCODES[key] || raw;
+    }catch(e){
+      return 'Furniture Store Partnership';
+    }
+  }
+
+  var detectedLeadSource = detectLeadSource();
 
   document.getElementById('ctaScroll').addEventListener('click', function(){
     document.getElementById('booking').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -391,7 +419,8 @@
       description: fullDescription,
       contactMethod: 'Phone',
       pickupWindow: pickupWindow,
-      smsOptIn: smsOptIn
+      smsOptIn: smsOptIn,
+      leadSource: detectedLeadSource
     };
 
     FlexLeads.addLead(lead);

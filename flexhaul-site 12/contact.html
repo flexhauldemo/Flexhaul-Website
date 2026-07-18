@@ -115,7 +115,7 @@
       <a href="contact.html" class="btn btn-primary btn-sm nav-cta-mobile">Get Free Quote</a>
     </nav>
     <div class="nav-right">
-      <a href="tel:+17650000000" class="nav-phone"><svg><use href="#icon-phone"/></svg>(765) 000-0000</a>
+      <a href="tel:+17658856137" class="nav-phone"><svg><use href="#icon-phone"/></svg>(765) 885-6137</a>
       <a href="contact.html" class="btn btn-primary btn-sm">Get Free Quote</a>
       <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">
         <svg><use href="#icon-menu"/></svg>
@@ -195,7 +195,7 @@
             </div>
             <div class="field">
               <label for="phone">Phone Number <span class="req">*</span></label>
-              <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="(765) 000-0000">
+              <input type="tel" id="phone" name="phone" required autocomplete="tel" placeholder="(765) 885-6137">
             </div>
           </div>
 
@@ -254,7 +254,7 @@
         <div class="card" style="margin-bottom:24px;">
           <h3 style="margin-bottom:18px;">Direct Contact</h3>
           <ul style="display:flex; flex-direction:column; gap:16px;">
-            <li style="display:flex; gap:12px; align-items:center;"><span class="icon-badge" style="width:40px;height:40px;"><svg style="width:20px;height:20px;"><use href="#icon-phone"/></svg></span><a href="tel:+17650000000" style="font-size:1.05rem; font-weight:600;">(765) 000-0000</a></li>
+            <li style="display:flex; gap:12px; align-items:center;"><span class="icon-badge" style="width:40px;height:40px;"><svg style="width:20px;height:20px;"><use href="#icon-phone"/></svg></span><a href="tel:+17658856137" style="font-size:1.05rem; font-weight:600;">(765) 885-6137</a></li>
             <li style="display:flex; gap:12px; align-items:center;"><span class="icon-badge" style="width:40px;height:40px;"><svg style="width:20px;height:20px;"><use href="#icon-mail"/></svg></span><a href="mailto:info@flexhaulanddemo.com">info@flexhaulanddemo.com</a></li>
             <li style="display:flex; gap:12px; align-items:center;"><span class="icon-badge" style="width:40px;height:40px;"><svg style="width:20px;height:20px;"><use href="#icon-map-pin"/></svg></span><span>Lafayette, IN &amp; surrounding communities</span></li>
             <li style="display:flex; gap:12px; align-items:center;"><span class="icon-badge" style="width:40px;height:40px;"><svg style="width:20px;height:20px;"><use href="#icon-clock"/></svg></span><span>Mon–Sat, 7 AM – 6 PM</span></li>
@@ -312,7 +312,7 @@
       <div class="footer-col">
         <h5>Contact</h5>
         <ul>
-          <li><a href="tel:+17650000000">(765) 000-0000</a></li>
+          <li><a href="tel:+17658856137">(765) 885-6137</a></li>
           <li><a href="mailto:info@flexhaulanddemo.com">info@flexhaulanddemo.com</a></li>
           <li><span>Lafayette, IN &amp; surrounding communities</span></li>
           <li><span>Mon–Sat, 7 AM – 6 PM</span></li>
@@ -334,6 +334,39 @@
 <script>
 (function(){
   "use strict";
+
+  // Detects which channel sent this visitor, from a ?source= (or ?src=)
+  // query parameter on the URL. Lets the furniture-store flyer QR, and
+  // dedicated links handed to realtor/landscaper referral partners, each
+  // point here with their own tag — e.g.
+  //   contact.html?source=furniture
+  //   contact.html?source=Real%20Estate%20Referral
+  // Short codes below map to the exact labels admin.html's dropdowns use;
+  // anything else passed in the URL is used as-is (so a partner-specific
+  // label works too, without a code change here). No param at all (a
+  // plain organic visit) falls back to "Website".
+  var SOURCE_SHORTCODES = {
+    'furniture': 'Furniture Store Partnership',
+    'realtor': 'Real Estate Referral',
+    'realestate': 'Real Estate Referral',
+    'landscaper': 'Landscaper Referral',
+    'landscaping': 'Landscaper Referral',
+    'referral': 'Word of Mouth'
+  };
+
+  function detectLeadSource(){
+    try{
+      var params = new URLSearchParams(window.location.search);
+      var raw = params.get('source') || params.get('src');
+      if(!raw) return 'Website';
+      var key = raw.toLowerCase().trim();
+      return SOURCE_SHORTCODES[key] || raw;
+    }catch(e){
+      return 'Website'; // very old browsers without URLSearchParams
+    }
+  }
+
+  var detectedLeadSource = detectLeadSource();
 
   var haulingRadio = document.getElementById('svc-hauling');
   var demoRadio = document.getElementById('svc-demo');
@@ -405,7 +438,8 @@
       description: description,
       contactMethod: contactMethod,
       pickupWindow: pickupWindow,
-      smsOptIn: smsOptIn
+      smsOptIn: smsOptIn,
+      leadSource: detectedLeadSource
     };
 
     FlexLeads.addLead(lead);
