@@ -1,0 +1,13 @@
+# Netlify configuration for the FlexHaul & Demolition website.
+#
+# The site itself is plain static HTML/CSS/JS with no build step — this
+# file exists mainly to tell Netlify where the serverless functions live
+# (netlify/functions) so submit-quote.js and send-reminders.js get deployed
+# and wired up automatically.
+
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
