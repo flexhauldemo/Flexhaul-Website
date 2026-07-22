@@ -8,10 +8,7 @@
 // Same protection as get-leads.js — requires the ADMIN_API_KEY header.
 //
 // Request body (JSON): { "id": "FH-...", "status": "scheduled" }
-//   - Include "status" to update it. Setting status to "completed" also
-//     auto-stamps completedAt, if it isn't already set.
-//   - Also accepts "leadSource", "quotedPrice", "finalPrice" for editing
-//     those fields — pass any subset, only what's present gets changed.
+//   - Include "status" to update it.
 //   - Method DELETE (with just "id" in the body) removes the lead entirely.
 
 const { getLeadsStore } = require("./_blobStore");
@@ -51,18 +48,6 @@ exports.handler = async function (event) {
   }
   if (payload.status) {
     existing.status = payload.status;
-    if (payload.status === "completed" && !existing.completedAt) {
-      existing.completedAt = new Date().toISOString();
-    }
-  }
-  if (typeof payload.leadSource === "string") {
-    existing.leadSource = payload.leadSource;
-  }
-  if (typeof payload.quotedPrice === "number" || payload.quotedPrice === null) {
-    existing.quotedPrice = payload.quotedPrice;
-  }
-  if (typeof payload.finalPrice === "number" || payload.finalPrice === null) {
-    existing.finalPrice = payload.finalPrice;
   }
   await store.setJSON(payload.id, existing);
 

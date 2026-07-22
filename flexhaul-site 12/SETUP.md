@@ -8,24 +8,15 @@ without these pieces — this guide is specifically about turning them on.
 ## What's already built
 
 - `netlify/functions/submit-quote.js` — receives the contact form
-  submission, saves it, links it to a customer profile, and sends an
-  instant SMS confirmation via Twilio if the customer opted in.
+  submission, saves it, and sends an instant SMS confirmation via Twilio
+  if the customer opted in.
 - `netlify/functions/send-reminders.js` — runs automatically once a day
   and texts anyone whose sofa/furniture pickup is happening tomorrow.
 - `netlify/functions/get-leads.js` — returns every saved lead. This is
   what lets `admin.html` show real bookings from every device, not just
   the browser it's opened in.
-- `netlify/functions/manage-lead.js` — updates a lead's status, lead
-  source, or quoted/final price, or deletes it — applying everywhere
-  (not just locally).
-- `netlify/functions/_customerStore.js`, `get-customers.js`,
-  `manage-customer.js` — the customer-profile layer. Every job
-  automatically links to a customer record (matched by phone number),
-  building a running history of notes, tags, job count, and lifetime
-  revenue per customer. See "Customers & lead sources" below.
-- `netlify/functions/create-lead.js` — lets staff log a job straight
-  from the dashboard, for anything that comes in by phone or referral
-  rather than through the website form.
+- `netlify/functions/manage-lead.js` — updates a lead's status or
+  deletes it from the dashboard, applying everywhere (not just locally).
 - `privacy.html` / `terms.html` — required by Twilio before they'll
   approve SMS sending (see step 2 below).
 - The contact form and furniture pickup form already call these
@@ -119,42 +110,6 @@ name, phone, and address. Keep it private the way you'd keep a shared
 password private, and don't post the admin URL anywhere public. If you
 later want real per-staff logins, audit logs, or role permissions,
 that's a bigger step up (e.g. Netlify Identity) — ask if you get there.
-
-## Customers & lead sources
-
-`admin.html` has a **Jobs / Customers** tab at the top. Jobs is the
-original dispatch view; Customers is new — every job automatically links
-to a customer profile (matched by phone number), so repeat customers and
-referral partners build a running history instead of showing up as
-disconnected one-off tickets. Click any customer row to see and edit
-their notes, tags, and full job history.
-
-Two things only work once you're connected to live data (see Step 4):
-customer profiles need somewhere real to persist, and the same goes for
-editing a job's **Source** and **Price** fields. Local demo mode still
-works for browsing and for the **"+ New Lead"** button, just without
-those two.
-
-**Logging phone-in jobs:** click **"+ New Lead"** on the dashboard for
-anything that comes in by phone, text, or referral instead of the
-website form — a realtor texting about a cleanout, a landscaper calling
-about a debris run. It links to a customer profile exactly like a web
-submission does.
-
-**Tagging where a website lead came from:** `contact.html` reads a
-`?source=` (or `?src=`) parameter off its own URL and tags the
-submission with it automatically; no parameter falls back to
-`"Website"`. `furniture-pickup.html` defaults to `"Furniture Store
-Partnership"` on its own, since landing on that page already signals
-the channel. Recognized short codes: `furniture`, `realtor` /
-`realestate`, `landscaper` / `landscaping`, `referral` — anything else
-in the parameter is used as the label verbatim, so each individual
-referral partner can get their own distinct, trackable link without any
-code changes, e.g.:
-
-```
-https://yourdomain.com/contact.html?source=Karen%20at%20ABC%20Realty
-```
 
 ## Changing the reminder send time
 
