@@ -21,12 +21,28 @@
     container.innerHTML = `
       <div class="main-header">
         <h1>Pipeline</h1>
-        <button class="btn btn-primary" id="newDealBtn"><svg><use href="#icon-plus"/></svg> New Deal</button>
+        <div class="flex gap-8">
+          <button class="btn btn-ghost btn-sm" id="resyncValuesBtn" title="Fixes any deal still showing $0 despite having a real estimate attached">Fix Values</button>
+          <button class="btn btn-primary" id="newDealBtn"><svg><use href="#icon-plus"/></svg> New Deal</button>
+        </div>
       </div>
       <div class="pipeline-board" id="pipelineBoard"></div>
     `;
 
     document.getElementById("newDealBtn").addEventListener("click", () => openNewDealModal());
+    document.getElementById("resyncValuesBtn").addEventListener("click", async () => {
+      try {
+        const result = await Api.resyncDealValues();
+        showToast(
+          result.dealsUpdated > 0
+            ? `Fixed ${result.dealsUpdated} deal${result.dealsUpdated === 1 ? "" : "s"} that had the wrong value shown.`
+            : "Everything already matched — nothing needed fixing."
+        );
+        await loadBoard();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
 
     await loadBoard();
   }
