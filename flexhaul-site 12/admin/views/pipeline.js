@@ -87,8 +87,12 @@
       sel.addEventListener("change", async (e) => {
         e.stopPropagation();
         try {
-          await Api.updateDeal(sel.dataset.dealId, { stage: sel.value });
-          showToast("Deal moved to " + sel.options[sel.selectedIndex].text);
+          const result = await Api.updateDeal(sel.dataset.dealId, { stage: sel.value });
+          if (result.auto_created) {
+            showToast("Deal won \u2014 a job and an unpaid invoice were created automatically. Just add a date on the Jobs tab.");
+          } else {
+            showToast("Deal moved to " + sel.options[sel.selectedIndex].text);
+          }
           await loadBoard();
         } catch (err) {
           showToast(err.message, true);
@@ -173,7 +177,15 @@
 
       <h3 style="font-size:0.85rem; margin-bottom:10px;">Estimates</h3>
       ${estimates.length === 0 ? '<p class="text-dim" style="margin-bottom:16px;">No estimates yet.</p>' :
-        estimates.map(e => `<div class="card" style="padding:12px; margin-bottom:8px;">Total: <strong>${money(e.total)}</strong></div>`).join("")
+        estimates.map(e => `
+          <div class="card" style="padding:12px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <span>Total: <strong>${money(e.total)}</strong></span>
+            ${e.accepted
+              ? '<span class="badge badge-won">\u2713 Accepted</span>'
+              : `<button class="btn btn-primary btn-sm accept-estimate-btn" data-estimate-id="${e.id}">Accept \u2192 Job &amp; Invoice</button>`
+            }
+          </div>
+        `).join("")
       }
       <button class="btn btn-ghost btn-sm" id="newEstimateBtn" style="margin-bottom:20px;"><svg><use href="#icon-plus"/></svg> New Estimate</button>
 
@@ -192,6 +204,24 @@
     const estBtn = overlay.querySelector("#newEstimateBtn");
     if (estBtn) estBtn.addEventListener("click", () => openEstimateModal(dealId));
 
+    overlay.querySelectorAll(".accept-estimate-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Accept this estimate? This automatically creates a job and an invoice.")) return;
+        btn.disabled = true;
+        btn.textContent = "Working\u2026";
+        try {
+          const result = await Api.acceptEstimate(btn.dataset.estimateId);
+          showToast(`Accepted \u2014 Job #${result.job.id} and Invoice #${result.invoice.id} created automatically.`);
+          closeModal();
+          await loadBoard();
+        } catch (err) {
+          showToast(err.message, true);
+          btn.disabled = false;
+          btn.textContent = "Accept \u2192 Job & Invoice";
+        }
+      });
+    });
+
     const jobBtn = overlay.querySelector("#newJobBtn");
     if (jobBtn) jobBtn.addEventListener("click", () => {
       closeModal();
@@ -200,10 +230,17 @@
     });
   }
 
-  function openEstimateModal(dealId) {
+  async function openEstimateModal(dealId) {
     const overlay = buildModal("New Estimate", `
+      <div class="field" style="margin-bottom:18px;">
+        <label>Add From Price List</label>
+        <div style="display:flex; gap:8px;">
+          <select id="catalogPicker" style="flex:1;"><option value="">Loading price list\u2026</option></select>
+          <button type="button" class="btn btn-ghost btn-sm" id="addFromCatalogBtn" style="flex-shrink:0;">Add</button>
+        </div>
+      </div>
       <div class="line-items" id="lineItemsWrap"></div>
-      <button class="btn btn-ghost btn-sm" id="addLineItemBtn" style="margin-bottom:16px;"><svg><use href="#icon-plus"/></svg> Add Line Item</button>
+      <button class="btn btn-ghost btn-sm" id="addLineItemBtn" style="margin-bottom:16px;"><svg><use href="#icon-plus"/></svg> Add Custom Line Item</button>
       <div class="estimate-total"><span>Total</span><span class="amt" id="estTotalDisplay">$0</span></div>
       <button class="btn btn-primary" id="saveEstimateBtn" style="width:100%; margin-top:16px;">Save Estimate</button>
     `);
@@ -221,68 +258,4 @@
           ${["labor","equipment","disposal","tonnage","cubic_yards","other"].map(t =>
             `<option value="${t}" ${t===item.type?"selected":""}>${t.replace("_"," ")}</option>`).join("")}
         </select>
-        <input type="number" placeholder="Rate $" class="li-rate" min="0" step="0.01" value="${item.rate}">
-        <button type="button" class="line-item-remove">\u2715</button>
-      `;
-      row.querySelectorAll(".li-qty, .li-rate").forEach((el) => el.addEventListener("input", recalc));
-      row.querySelector(".line-item-remove").addEventListener("click", () => { row.remove(); recalc(); });
-      wrap.appendChild(row);
-      recalc();
-    }
-
-    function recalc() {
-      let total = 0;
-      wrap.querySelectorAll(".line-item-row").forEach((row) => {
-        const qty = Number(row.querySelector(".li-qty").value) || 0;
-        const rate = Number(row.querySelector(".li-rate").value) || 0;
-        total += qty * rate;
-      });
-      overlay.querySelector("#estTotalDisplay").textContent = money(total);
-    }
-
-    overlay.querySelector("#addLineItemBtn").addEventListener("click", () => addRow());
-    addRow({ type: "labor", label: "Crew labor", qty: 1, rate: 0 });
-
-    overlay.querySelector("#saveEstimateBtn").addEventListener("click", async () => {
-      const items = Array.from(wrap.querySelectorAll(".line-item-row")).map((row) => ({
-        type: row.querySelector(".li-type").value,
-        label: row.querySelector(".li-label").value,
-        qty: Number(row.querySelector(".li-qty").value) || 0,
-        rate: Number(row.querySelector(".li-rate").value) || 0,
-      }));
-      try {
-        await Api.createEstimate({ deal_id: dealId, line_items: items });
-        closeModal();
-        showToast("Estimate saved");
-      } catch (err) {
-        showToast(err.message, true);
-      }
-    });
-  }
-
-  // ---- shared modal helper ----
-  function buildModal(title, bodyHtml) {
-    closeModal();
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay is-open";
-    overlay.id = "activeModal";
-    overlay.innerHTML = `
-      <div class="modal">
-        <div class="modal-head"><h2 style="font-size:1.15rem;">${title}</h2><button class="modal-close">\u2715</button></div>
-        <div class="modal-body">${bodyHtml}</div>
-      </div>
-    `;
-    overlay.querySelector(".modal-close").addEventListener("click", closeModal);
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
-    document.body.appendChild(overlay);
-    return overlay;
-  }
-  function closeModal() {
-    const existing = document.getElementById("activeModal");
-    if (existing) existing.remove();
-  }
-  window.closeModal = closeModal;
-
-  window.Views = window.Views || {};
-  window.Views.pipeline = render;
-})();
+        <input type="number"
