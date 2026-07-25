@@ -258,4 +258,93 @@
           ${["labor","equipment","disposal","tonnage","cubic_yards","other"].map(t =>
             `<option value="${t}" ${t===item.type?"selected":""}>${t.replace("_"," ")}</option>`).join("")}
         </select>
-        <input type="number"
+        <input type="number" placeholder="Rate $" class="li-rate" min="0" step="0.01" value="${item.rate}">
+        <button type="button" class="line-item-remove">\u2715</button>
+      `;
+      row.querySelectorAll(".li-qty, .li-rate").forEach((el) => el.addEventListener("input", recalc));
+      row.querySelector(".line-item-remove").addEventListener("click", () => { row.remove(); recalc(); });
+      wrap.appendChild(row);
+      recalc();
+    }
+
+    function recalc() {
+      let total = 0;
+      wrap.querySelectorAll(".line-item-row").forEach((row) => {
+        const qty = Number(row.querySelector(".li-qty").value) || 0;
+        const rate = Number(row.querySelector(".li-rate").value) || 0;
+        total += qty * rate;
+      });
+      overlay.querySelector("#estTotalDisplay").textContent = money(total);
+    }
+
+    let catalogItems = [];
+    try {
+      const { items } = await Api.listPriceCatalog();
+      catalogItems = items;
+      const picker = overlay.querySelector("#catalogPicker");
+      const byCategory = {};
+      items.forEach((it) => { (byCategory[it.category] = byCategory[it.category] || []).push(it); });
+      picker.innerHTML = '<option value="">\u2014 Choose an item \u2014</option>' +
+        Object.keys(byCategory).map((cat) => `
+          <optgroup label="${esc(cat)}">
+            ${byCategory[cat].map((it) => `<option value="${it.id}">${esc(it.label)} \u2014 $${it.rate}${it.unit && it.unit !== "item" ? "/" + it.unit.replace("_"," ") : ""}</option>`).join("")}
+          </optgroup>
+        `).join("");
+    } catch (err) {
+      overlay.querySelector("#catalogPicker").innerHTML = '<option value="">Could not load price list</option>';
+    }
+
+    overlay.querySelector("#addFromCatalogBtn").addEventListener("click", () => {
+      const picker = overlay.querySelector("#catalogPicker");
+      const selected = catalogItems.find((it) => String(it.id) === picker.value);
+      if (!selected) return;
+      addRow({ type: selected.type, label: selected.label, qty: 1, rate: selected.rate });
+      picker.value = "";
+    });
+
+    overlay.querySelector("#addLineItemBtn").addEventListener("click", () => addRow());
+    addRow({ type: "labor", label: "Crew labor", qty: 1, rate: 0 });
+
+    overlay.querySelector("#saveEstimateBtn").addEventListener("click", async () => {
+      const items = Array.from(wrap.querySelectorAll(".line-item-row")).map((row) => ({
+        type: row.querySelector(".li-type").value,
+        label: row.querySelector(".li-label").value,
+        qty: Number(row.querySelector(".li-qty").value) || 0,
+        rate: Number(row.querySelector(".li-rate").value) || 0,
+      }));
+      try {
+        await Api.createEstimate({ deal_id: dealId, line_items: items });
+        closeModal();
+        showToast("Estimate saved");
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  }
+
+  // ---- shared modal helper ----
+  function buildModal(title, bodyHtml) {
+    closeModal();
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay is-open";
+    overlay.id = "activeModal";
+    overlay.innerHTML = `
+      <div class="modal">
+        <div class="modal-head"><h2 style="font-size:1.15rem;">${title}</h2><button class="modal-close">\u2715</button></div>
+        <div class="modal-body">${bodyHtml}</div>
+      </div>
+    `;
+    overlay.querySelector(".modal-close").addEventListener("click", closeModal);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+  function closeModal() {
+    const existing = document.getElementById("activeModal");
+    if (existing) existing.remove();
+  }
+  window.closeModal = closeModal;
+
+  window.Views = window.Views || {};
+  window.Views.pipeline = render;
+})();
