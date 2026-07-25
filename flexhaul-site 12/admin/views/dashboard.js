@@ -43,6 +43,21 @@
     container.innerHTML = `
       <div class="main-header"><h1>Dashboard</h1></div>
 
+      <div class="grid stat-grid" style="grid-template-columns:repeat(3,1fr); margin-bottom:18px;">
+        <div class="stat-card" style="border-color:rgba(75,125,74,0.3);">
+          <div class="num" style="color:var(--good);">${money(data.total_revenue)}</div>
+          <div class="lbl">Total Revenue (All Time)</div>
+        </div>
+        <div class="stat-card" style="border-color:rgba(75,125,74,0.3);">
+          <div class="num" style="color:var(--good);">${money(data.revenue_this_month)}</div>
+          <div class="lbl">Revenue This Month</div>
+        </div>
+        <div class="stat-card">
+          <div class="num">${money(data.pipeline_value)}</div>
+          <div class="lbl">Open Pipeline Value</div>
+        </div>
+      </div>
+
       <div class="grid stat-grid">
         <div class="stat-card"><div class="num">${data.open_deals}</div><div class="lbl">Open Deals</div></div>
         <div class="stat-card"><div class="num">${data.jobs_this_week}</div><div class="lbl">Jobs This Week</div></div>
