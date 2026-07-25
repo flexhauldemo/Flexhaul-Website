@@ -124,6 +124,25 @@ const Api = {
 
   listTimeSlots: () => request("GET", "/time-slots"),
   listPriceCatalog: () => request("GET", "/price-catalog"),
+
+  // PDFs need the auth header too, so a plain <a href> tag won't work —
+  // fetch it as a blob, then trigger the download ourselves.
+  downloadInvoicePdf: async (id) => {
+    const token = Auth.getToken();
+    const res = await fetch(`${API_BASE}/invoices/${id}/pdf`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new ApiError("Could not download the invoice PDF.", res.status);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `FlexHaul-Invoice-${id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };
 
 window.Auth = Auth;
