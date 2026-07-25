@@ -13,6 +13,24 @@
     catch (e) { return d; }
   }
 
+  // See the matching helper in pipeline.js — small local copy, no
+  // shared module since this project has no build step.
+  function copyShareLink(btn, page, token) {
+    const url = `${window.location.origin}/${page}?token=${token}`;
+    const originalHtml = btn.innerHTML;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        btn.textContent = "Copied!";
+        showToast("Link copied \u2014 paste it into a text or email to the customer.");
+        setTimeout(() => { btn.innerHTML = originalHtml; }, 2000);
+      }).catch(() => {
+        window.prompt("Copy this link:", url);
+      });
+    } else {
+      window.prompt("Copy this link:", url);
+    }
+  }
+
   async function render(container) {
     container.innerHTML = `
       <div class="main-header">
@@ -47,10 +65,14 @@
               <td>${fmtDate(inv.due_date)}</td>
               <td><span class="badge badge-${inv.status}">${esc(inv.status)}</span></td>
               <td>
-                ${inv.status !== "paid"
-                  ? `<button class="btn btn-ghost btn-sm mark-paid-btn" data-id="${inv.id}">Mark Paid</button>`
-                  : `<button class="btn btn-ghost btn-sm mark-unpaid-btn" data-id="${inv.id}">Mark Unpaid</button>`
-                }
+                <div class="flex gap-8">
+                  ${inv.status !== "paid"
+                    ? `<button class="btn btn-ghost btn-sm mark-paid-btn" data-id="${inv.id}">Mark Paid</button>`
+                    : `<button class="btn btn-ghost btn-sm mark-unpaid-btn" data-id="${inv.id}">Mark Unpaid</button>`
+                  }
+                  <button class="btn btn-ghost btn-sm download-pdf-btn" data-id="${inv.id}"><svg><use href="#icon-download"/></svg> PDF</button>
+                  ${inv.status !== "paid" ? `<button class="btn btn-ghost btn-sm copy-invoice-link-btn" data-token="${inv.share_token}">Copy Pay Link</button>` : ""}
+                </div>
               </td>
             </tr>
           `).join("")}
@@ -76,6 +98,25 @@
           showToast("Marked unpaid");
           await loadList();
         } catch (err) { showToast(err.message, true); }
+      });
+    });
+    wrap.querySelectorAll(".download-pdf-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        btn.disabled = true;
+        try {
+          await Api.downloadInvoicePdf(btn.dataset.id);
+        } catch (err) {
+          showToast(err.message, true);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+    wrap.querySelectorAll(".copy-invoice-link-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        copyShareLink(btn, "invoice.html", btn.dataset.token);
       });
     });
   }
@@ -111,7 +152,6 @@
           payload.amount = Number(amountRaw);
         } else {
           const { job } = await Api.getJob(jobId);
-          // fall back: try to find an estimate on the job's deal
           const { estimates } = await Api.getDeal(job.deal_id);
           if (estimates && estimates.length > 0) {
             payload.estimate_id = estimates[0].id;
