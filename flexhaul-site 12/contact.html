@@ -215,6 +215,18 @@
           </div>
 
           <div class="field">
+            <label for="address">Property Address <span class="req">*</span></label>
+            <input type="text" id="address" name="address" required autocomplete="street-address" placeholder="Street address, Lafayette, IN">
+          </div>
+
+          <div class="field">
+            <label for="itemSelect">Select Your Item <span class="small-note" style="text-transform:none; font-weight:400; letter-spacing:0; font-family:var(--font-body);">(optional — pick the closest match, add more detail or additional items below)</span></label>
+            <select id="itemSelect" name="itemSelect">
+              <option value="">Loading items&hellip;</option>
+            </select>
+          </div>
+
+          <div class="field">
             <label for="description">Description of Items or Project</label>
             <textarea id="description" name="description" placeholder="Tell us what you need hauled or removed — sizes, quantities, access notes, anything that helps us quote accurately."></textarea>
           </div>
@@ -371,6 +383,39 @@
     fileDropLabel.textContent = n > 0 ? (n + ' photo' + (n>1?'s':'') + ' selected') : 'Choose photos from your device';
   });
 
+  // Populates the item dropdown from the CRM's price catalog — names
+  // only, never rates (that stays off the public site on purpose).
+  // Falls back gracefully to a short static list if the backend can't
+  // be reached, so the form still works either way.
+  var itemSelect = document.getElementById('itemSelect');
+  function loadItemOptions(items){
+    var byCategory = {};
+    items.forEach(function(it){
+      (byCategory[it.category] = byCategory[it.category] || []).push(it.label);
+    });
+    var html = '<option value="">\u2014 Select an item \u2014</option>';
+    Object.keys(byCategory).forEach(function(cat){
+      html += '<optgroup label="' + escapeHtml(cat) + '">';
+      byCategory[cat].forEach(function(label){
+        html += '<option value="' + escapeHtml(label) + '">' + escapeHtml(label) + '</option>';
+      });
+      html += '</optgroup>';
+    });
+    html += '<option value="Other / Not Listed">Other / Not Listed \u2014 I\u2019ll describe it below</option>';
+    itemSelect.innerHTML = html;
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+  }
+  fetch('https://flexhaul-crm-backend.onrender.com/api/public/item-list')
+    .then(function(res){ return res.json(); })
+    .then(function(data){ loadItemOptions(data.items || []); })
+    .catch(function(){
+      // Backend unreachable — the dropdown just becomes optional-and-empty
+      // rather than broken; the description field still covers everything.
+      itemSelect.innerHTML = '<option value="">\u2014 Select an item (unavailable right now) \u2014</option><option value="Other / Not Listed">Other / Not Listed \u2014 I\u2019ll describe it below</option>';
+    });
+
   var form = document.getElementById('quoteForm');
   form.addEventListener('submit', function(e){
     e.preventDefault();
@@ -378,16 +423,19 @@
     var fullName = document.getElementById('fullName').value.trim();
     var phone = document.getElementById('phone').value.trim();
     var email = document.getElementById('email').value.trim();
+    var address = document.getElementById('address').value.trim();
 
-    if(!fullName || !phone || !email){
-      alert('Please fill in your name, phone, and email so we can get back to you.');
+    if(!fullName || !phone || !email || !address){
+      alert('Please fill in your name, phone, email, and property address so we can get back to you with an accurate quote.');
       return;
     }
 
     var service = form.querySelector('input[name="service"]:checked').value;
     var contactMethod = form.querySelector('input[name="contactMethod"]:checked').value;
     var propertyType = document.getElementById('propertyType').value;
+    var selectedItem = document.getElementById('itemSelect').value;
     var description = document.getElementById('description').value.trim();
+    var fullDescription = (selectedItem ? selectedItem + (description ? ' \u2014 ' + description : '') : description);
     var categories = Array.prototype.slice.call(form.querySelectorAll('input[name="category"]:checked')).map(function(el){ return el.value; });
     var pickupWindow = document.getElementById('pickupWindow').value;
     var smsOptIn = document.getElementById('smsOptIn').checked;
@@ -401,8 +449,10 @@
       name: fullName,
       phone: phone,
       email: email,
+      address: address,
       propertyType: propertyType,
-      description: description,
+      selectedItem: selectedItem,
+      description: fullDescription,
       contactMethod: contactMethod,
       pickupWindow: pickupWindow,
       smsOptIn: smsOptIn
@@ -435,8 +485,9 @@
         name: fullName,
         phone: phone,
         email: email,
+        address: address,
         service: service,
-        description: description,
+        description: fullDescription,
         source: 'website'
       })
     }).catch(function(err){
