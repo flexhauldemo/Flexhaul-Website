@@ -124,6 +124,7 @@ const Api = {
 
   listTimeSlots: () => request("GET", "/time-slots"),
   listPriceCatalog: () => request("GET", "/price-catalog"),
+  reloadPriceCatalog: () => request("POST", "/price-catalog/reload"),
 
   // PDFs need the auth header too, so a plain <a href> tag won't work —
   // fetch it as a blob, then trigger the download ourselves.
