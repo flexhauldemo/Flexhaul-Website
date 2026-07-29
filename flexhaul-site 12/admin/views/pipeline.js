@@ -17,12 +17,34 @@
   }
   function money(n) { return "$" + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 }); }
 
+  // Builds the public link (same origin as this admin page, since
+  // admin.html and estimate.html/invoice.html are deployed together)
+  // and copies it to the clipboard. Falls back to a prompt() showing
+  // the raw link if the Clipboard API isn't available — e.g. an older
+  // browser, or a non-HTTPS context where clipboard access is blocked.
+  function copyShareLink(btn, page, token) {
+    const url = `${window.location.origin}/${page}?token=${token}`;
+    const originalHtml = btn.innerHTML;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        btn.textContent = "Copied!";
+        showToast("Link copied \u2014 paste it into a text or email to the customer.");
+        setTimeout(() => { btn.innerHTML = originalHtml; }, 2000);
+      }).catch(() => {
+        window.prompt("Copy this link:", url);
+      });
+    } else {
+      window.prompt("Copy this link:", url);
+    }
+  }
+
   async function render(container) {
     container.innerHTML = `
       <div class="main-header">
         <h1>Pipeline</h1>
         <div class="flex gap-8">
           <button class="btn btn-ghost btn-sm" id="resyncValuesBtn" title="Fixes any deal still showing $0 despite having a real estimate attached">Fix Values</button>
+          <button class="btn btn-ghost btn-sm" id="reloadCatalogBtn" title="Reloads the item picker in the estimate builder with the latest official pricing">Reload Price List</button>
           <button class="btn btn-primary" id="newDealBtn"><svg><use href="#icon-plus"/></svg> New Deal</button>
         </div>
       </div>
@@ -39,6 +61,16 @@
             : "Everything already matched — nothing needed fixing."
         );
         await loadBoard();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+
+    document.getElementById("reloadCatalogBtn").addEventListener("click", async () => {
+      if (!confirm("Reload the price list from the latest official pricing? This replaces every item in the estimate picker \u2014 any items you'd added or edited by hand will be gone.")) return;
+      try {
+        const result = await Api.reloadPriceCatalog();
+        showToast(`Price list reloaded \u2014 ${result.itemsLoaded} items loaded.`);
       } catch (err) {
         showToast(err.message, true);
       }
@@ -178,12 +210,15 @@
       <h3 style="font-size:0.85rem; margin-bottom:10px;">Estimates</h3>
       ${estimates.length === 0 ? '<p class="text-dim" style="margin-bottom:16px;">No estimates yet.</p>' :
         estimates.map(e => `
-          <div class="card" style="padding:12px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
-            <span>Total: <strong>${money(e.total)}</strong></span>
-            ${e.accepted
-              ? '<span class="badge badge-won">\u2713 Accepted</span>'
-              : `<button class="btn btn-primary btn-sm accept-estimate-btn" data-estimate-id="${e.id}">Accept \u2192 Job &amp; Invoice</button>`
-            }
+          <div class="card" style="padding:12px; margin-bottom:8px;">
+            <div class="flex items-center" style="justify-content:space-between; gap:12px;">
+              <span>Total: <strong>${money(e.total)}</strong></span>
+              ${e.accepted
+                ? '<span class="badge badge-won">\u2713 Accepted</span>'
+                : `<button class="btn btn-primary btn-sm accept-estimate-btn" data-estimate-id="${e.id}">Accept \u2192 Job &amp; Invoice</button>`
+              }
+            </div>
+            ${!e.accepted ? `<button class="btn btn-ghost btn-sm copy-estimate-link-btn" data-token="${e.share_token}" style="margin-top:10px; width:100%;"><svg><use href="#icon-download"/></svg> Copy Customer Approval Link</button>` : ""}
           </div>
         `).join("")
       }
@@ -220,6 +255,10 @@
           btn.textContent = "Accept \u2192 Job & Invoice";
         }
       });
+    });
+
+    overlay.querySelectorAll(".copy-estimate-link-btn").forEach((btn) => {
+      btn.addEventListener("click", () => copyShareLink(btn, "estimate.html", btn.dataset.token));
     });
 
     const jobBtn = overlay.querySelector("#newJobBtn");
@@ -277,6 +316,8 @@
       overlay.querySelector("#estTotalDisplay").textContent = money(total);
     }
 
+    // Load the price catalog and group it by category so it's a
+    // scannable dropdown instead of 100 items in a flat list.
     let catalogItems = [];
     try {
       const { items } = await Api.listPriceCatalog();
