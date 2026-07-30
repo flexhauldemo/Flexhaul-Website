@@ -8,7 +8,12 @@
     { key: "won", label: "Won" },
     { key: "scheduled", label: "Scheduled" },
     { key: "complete", label: "Complete" },
-    { key: "invoiced", label: "Invoiced" },
+    // Paid-and-invoiced deals fall off this board 24 hours after they
+    // land here (see routes/deals.js GET /) — the hint tells staff that
+    // up front instead of a card just quietly vanishing overnight. The
+    // full record never goes away, it just moves to being reachable
+    // through that customer's page instead of the board.
+    { key: "invoiced", label: "Invoiced", hint: "clears after 24h \u2014 still on Customers" },
   ];
 
   function esc(s) {
@@ -91,6 +96,7 @@
             <h3>${stage.label}</h3>
             <span class="count">${stageDeals.length}</span>
           </div>
+          ${stage.hint ? `<div class="text-dim" style="font-size:0.68rem; padding:0 4px 8px;">${esc(stage.hint)}</div>` : ""}
           ${stageDeals.map((d) => `
             <div class="deal-card" data-deal-id="${d.id}">
               <div class="name">${esc(d.customer_name)}</div>
