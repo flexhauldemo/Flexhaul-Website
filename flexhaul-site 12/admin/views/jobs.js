@@ -25,6 +25,11 @@
     };
     return `${fmt(start)} \u2013 ${fmt(end)}`;
   }
+  // Human label for a stage change toast, e.g. "won" -> "Won".
+  function stageLabel(stage) {
+    const labels = { won: "Won", scheduled: "Scheduled", complete: "Complete", invoiced: "Invoiced" };
+    return labels[stage] || stage;
+  }
 
   async function render(container) {
     container.innerHTML = `
@@ -50,6 +55,21 @@
     }
   }
 
+  // Renders one <tr> for a job. isChild rows belong to a multi-job
+  // customer group and are hidden until that group is expanded.
+  function jobRowHtml(j, isChild, groupId) {
+    return `
+      <tr data-id="${j.id}" ${isChild ? `data-child-of="${groupId}" class="job-subrow"` : ""}>
+        <td>${fmtDate(j.scheduled_date)}</td>
+        <td>${esc(fmtTimeSlot(j.scheduled_time_slot) || "\u2014")}</td>
+        <td>${isChild ? '<span class="text-dim">\u21B3</span> ' : ""}${esc(j.customer_name)}</td>
+        <td>${esc(j.address || "\u2014")}</td>
+        <td>${esc(j.crew_name || "\u2014")}</td>
+        <td><span class="badge badge-${j.status}">${esc(j.status.replace("_", " "))}</span></td>
+      </tr>
+    `;
+  }
+
   async function loadList() {
     const wrap = document.getElementById("jobsTableWrap");
     const { jobs } = await Api.listJobs();
@@ -59,23 +79,65 @@
       return;
     }
 
+    // Group jobs by customer so a repeat customer with several jobs
+    // (recurring service, or a second order added later) reads as ONE
+    // line with a small expand toggle, instead of their name repeated
+    // down the table once per job. A customer with only one job renders
+    // exactly as before — no extra chrome for the common case.
+    const order = [];
+    const groups = new Map();
+    jobs.forEach((j) => {
+      if (!groups.has(j.customer_id)) {
+        groups.set(j.customer_id, { customer_id: j.customer_id, customer_name: j.customer_name, jobs: [] });
+        order.push(j.customer_id);
+      }
+      groups.get(j.customer_id).jobs.push(j);
+    });
+
+    const bodyHtml = order.map((custId) => {
+      const group = groups.get(custId);
+      if (group.jobs.length === 1) return jobRowHtml(group.jobs[0], false);
+
+      const groupId = `grp-${custId}`;
+      const sorted = group.jobs.slice().sort((a, b) => (a.scheduled_date || "9999-99-99").localeCompare(b.scheduled_date || "9999-99-99"));
+      const nextJob = sorted.find((j) => j.status !== "complete" && j.status !== "canceled") || sorted[0];
+      const openCount = group.jobs.filter((j) => j.status !== "complete" && j.status !== "canceled").length;
+
+      return `
+        <tr class="job-group-header" data-group="${groupId}">
+          <td colspan="2"><button type="button" class="group-toggle" data-group="${groupId}" aria-label="Expand jobs">\u25B8</button></td>
+          <td><strong>${esc(group.customer_name)}</strong></td>
+          <td class="text-dim" colspan="2">${group.jobs.length} jobs \u2014 ${openCount} open \u2014 next: ${fmtDate(nextJob.scheduled_date)}</td>
+          <td></td>
+        </tr>
+        ${sorted.map((j) => jobRowHtml(j, true, groupId)).join("")}
+      `;
+    }).join("");
+
     wrap.innerHTML = `
       <table class="data">
         <thead><tr><th>Date</th><th>Time Window</th><th>Customer</th><th>Address</th><th>Crew</th><th>Status</th></tr></thead>
-        <tbody>
-          ${jobs.map((j) => `
-            <tr data-id="${j.id}">
-              <td>${fmtDate(j.scheduled_date)}</td>
-              <td>${esc(fmtTimeSlot(j.scheduled_time_slot) || "\u2014")}</td>
-              <td>${esc(j.customer_name)}</td>
-              <td>${esc(j.address || "\u2014")}</td>
-              <td>${esc(j.crew_name || "\u2014")}</td>
-              <td><span class="badge badge-${j.status}">${esc(j.status.replace("_"," "))}</span></td>
-            </tr>
-          `).join("")}
-        </tbody>
+        <tbody>${bodyHtml}</tbody>
       </table>
     `;
+
+    // Sub-rows start collapsed under their group header. The whole header
+    // row is the tap target (not just the small caret button) — this app
+    // is built for checking jobs from a truck cab, so it follows the same
+    // large-tap-target rule as everything else here.
+    wrap.querySelectorAll("tr[data-child-of]").forEach((tr) => { tr.style.display = "none"; });
+
+    wrap.querySelectorAll(".job-group-header").forEach((headerRow) => {
+      headerRow.addEventListener("click", () => {
+        const groupId = headerRow.dataset.group;
+        const btn = headerRow.querySelector(".group-toggle");
+        const expanded = btn.textContent === "\u25BE";
+        btn.textContent = expanded ? "\u25B8" : "\u25BE";
+        wrap.querySelectorAll(`tr[data-child-of="${groupId}"]`).forEach((tr) => {
+          tr.style.display = expanded ? "none" : "";
+        });
+      });
+    });
 
     wrap.querySelectorAll("tr[data-id]").forEach((tr) => {
       tr.addEventListener("click", () => openJobDetail(tr.dataset.id));
@@ -116,7 +178,7 @@
       const dealId = overlay.querySelector("#jDeal").value;
       if (!dealId) { showToast("Select a deal first", true); return; }
       try {
-        await Api.createJob({
+        const result = await Api.createJob({
           deal_id: dealId,
           scheduled_date: overlay.querySelector("#jDate").value || null,
           scheduled_time_slot: overlay.querySelector("#jTimeSlot").value || null,
@@ -125,7 +187,11 @@
           notes: overlay.querySelector("#jNotes").value.trim(),
         });
         closeModal();
-        showToast("Job created");
+        showToast(
+          result.deal_stage_change
+            ? `Job created \u2014 pipeline moved to ${stageLabel(result.deal_stage_change)} automatically.`
+            : "Job created"
+        );
         await loadList();
       } catch (err) {
         showToast(err.message, true);
@@ -185,14 +251,20 @@
 
     overlay.querySelector("#saveJobDetailBtn").addEventListener("click", async () => {
       try {
-        await Api.updateJob(id, {
+        const result = await Api.updateJob(id, {
           status: overlay.querySelector("#jobStatusSelect").value,
           scheduled_date: overlay.querySelector("#jobDateInput").value || null,
           scheduled_time_slot: overlay.querySelector("#jobTimeSlotSelect").value || null,
           address: overlay.querySelector("#jobAddressInput").value.trim(),
           notes: overlay.querySelector("#jobNotesInput").value.trim(),
         });
-        showToast("Job updated");
+        if (result.deal_stage_change) {
+          showToast(`Job updated \u2014 pipeline moved to ${stageLabel(result.deal_stage_change)} automatically.`);
+        } else if (result.spawned_job) {
+          showToast(`Job updated \u2014 next occurrence (job #${result.spawned_job.id}) auto-scheduled.`);
+        } else {
+          showToast("Job updated");
+        }
         await loadList();
       } catch (err) {
         showToast(err.message, true);
