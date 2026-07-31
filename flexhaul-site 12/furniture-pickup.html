@@ -131,16 +131,16 @@
   <div class="container">
     <div class="breadcrumb"><a href="index.html">Home</a><svg width="12" height="12"><use href="#icon-chevron-right"/></svg><span>Furniture Pickup</span></div>
     <div class="text-center" style="max-width:640px; margin:0 auto;">
-      <span class="eyebrow" style="justify-content:center;">For Furniture Store Customers</span>
+      <span class="eyebrow" style="justify-content:center;">For Furniture Store Customers &middot; Now Every Saturday</span>
       <h1 class="h-xl" style="margin-top:14px;">New Furniture In.<br><span style="color:var(--amber);">Old Furniture Out.</span></h1>
-      <p class="lede" style="margin:18px auto 0;">Just bought new furniture? We'll pick up your old piece — pick a time window and you're booked in under a minute.</p>
+      <p class="lede" style="margin:18px auto 0;">Just bought new furniture? We'll pick up your old piece — now scheduling <strong>every Saturday</strong>, pick a time window and you're booked in under a minute.</p>
       <button class="btn btn-primary btn-xl" id="ctaScroll" type="button" style="margin-top:28px;">
         Schedule My Pickup <svg><use href="#icon-arrow-right"/></svg>
       </button>
       <div class="badge-strip" style="justify-content:center; margin-top:26px;">
         <span class="tag-chip"><svg><use href="#icon-shield"/></svg>Licensed</span>
         <span class="tag-chip"><svg><use href="#icon-dollar"/></svg>Upfront pricing</span>
-        <span class="tag-chip"><svg><use href="#icon-clock"/></svg>Next pickup: <strong data-next-pickup-date>&nbsp;</strong></span>
+        <span class="tag-chip"><svg><use href="#icon-clock"/></svg>Every Saturday &middot; Next: <strong data-next-pickup-date>&nbsp;</strong></span>
       </div>
     </div>
   </div>
@@ -191,18 +191,8 @@
         </div>
         <div class="ticket-stamp">Open</div>
       </div>
-      <div class="ticket-window-grid">
-        <div class="ticket-row"><span class="label">Window 1</span><span class="value" data-pickup-window="0">—</span></div>
-        <div class="ticket-row"><span class="label">Window 2</span><span class="value" data-pickup-window="1">—</span></div>
-        <div class="ticket-row"><span class="label">Window 3</span><span class="value" data-pickup-window="2">—</span></div>
-        <div class="ticket-row"><span class="label">Window 4</span><span class="value" data-pickup-window="3">—</span></div>
-        <div class="ticket-row"><span class="label">Window 5</span><span class="value" data-pickup-window="4">—</span></div>
-        <div class="ticket-row"><span class="label">Window 6</span><span class="value" data-pickup-window="5">—</span></div>
-        <div class="ticket-row"><span class="label">Window 7</span><span class="value" data-pickup-window="6">—</span></div>
-        <div class="ticket-row"><span class="label">Window 8</span><span class="value" data-pickup-window="7">—</span></div>
-        <div class="ticket-row"><span class="label">Window 9</span><span class="value" data-pickup-window="8">—</span></div>
-      </div>
-      <div class="ticket-foot">Sofa &amp; furniture pickup runs every other Saturday while we grow our crew. A $95 minimum service call applies to every job.</div>
+      <div class="ticket-window-grid window-picker" data-pickup-window-picker></div>
+      <div class="ticket-foot">Sofa &amp; furniture pickup now runs every Saturday. A $95 minimum service call applies to every job.</div>
     </div>
 
     <form class="form-card" id="bookingForm" novalidate data-reveal>
@@ -238,11 +228,22 @@
           <input type="email" id="email" name="email" required autocomplete="email">
         </div>
         <div class="field">
-          <label for="pickupWindow">Preferred Window <span class="req">*</span></label>
-          <select id="pickupWindow" name="pickupWindow" data-pickup-window-select required>
-            <option value="" disabled selected>Choose a time</option>
-          </select>
+          <label for="streetAddress">Street Address <span class="req">*</span></label>
+          <input type="text" id="streetAddress" name="streetAddress" required autocomplete="street-address" placeholder="123 Main St, Lafayette, IN">
         </div>
+      </div>
+
+      <div class="field">
+        <label for="furnitureLocation">Where's the furniture right now? <span class="req">*</span></label>
+        <select id="furnitureLocation" name="furnitureLocation" required>
+          <option value="" disabled selected>Choose a location</option>
+          <option value="Main Floor">Main Floor</option>
+          <option value="Basement">Basement</option>
+          <option value="Upstairs">Upstairs</option>
+          <option value="Garage">Garage</option>
+          <option value="Curb">Curb (already outside)</option>
+          <option value="Other">Other</option>
+        </select>
       </div>
 
       <div class="field">
@@ -361,10 +362,13 @@
     var fullName = document.getElementById('fullName').value.trim();
     var phone = document.getElementById('phone').value.trim();
     var email = document.getElementById('email').value.trim();
-    var pickupWindow = document.getElementById('pickupWindow').value;
+    var streetAddress = document.getElementById('streetAddress').value.trim();
+    var furnitureLocation = document.getElementById('furnitureLocation').value;
+    var pickupWindowInput = document.querySelector('[data-pickup-window-picker] input[name="pickupWindow"]:checked');
+    var pickupWindow = pickupWindowInput ? pickupWindowInput.value : '';
 
-    if(!fullName || !phone || !email || !pickupWindow){
-      alert('Please fill in your name, phone, email, and pick a time window so we can confirm your pickup.');
+    if(!fullName || !phone || !email || !streetAddress || !furnitureLocation || !pickupWindow){
+      alert('Please fill in your name, phone, email, address, furniture location, and pick a time window so we can confirm your pickup.');
       return;
     }
 
@@ -375,6 +379,7 @@
 
     var fullDescription = [
       tier,
+      'Location: ' + furnitureLocation,
       store ? ('Purchased at: ' + store) : '',
       description
     ].filter(Boolean).join(' — ');
@@ -388,6 +393,7 @@
       name: fullName,
       phone: phone,
       email: email,
+      address: streetAddress,
       propertyType: 'Residential',
       description: fullDescription,
       contactMethod: 'Phone',
@@ -414,8 +420,9 @@
         name: fullName,
         phone: phone,
         email: email,
+        address: streetAddress,
         service: 'Furniture Pickup',
-        description: fullDescription,
+        description: fullDescription + ' — Requested window: ' + pickupWindow,
         source: 'website'
       })
     }).catch(function(err){
