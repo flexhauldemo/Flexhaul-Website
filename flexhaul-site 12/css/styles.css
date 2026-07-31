@@ -311,6 +311,35 @@ input,select,textarea{ font-family:inherit; font-size:1rem; }
 .ticket-foot{ margin-top:14px; padding-top:12px; border-top:1px dashed var(--kraft-line); font-size:0.78rem; color:#5b563f; line-height:1.5; }
 .ticket-window-grid{ display:grid; grid-template-columns:1fr 1fr; gap:0 18px; margin:4px 0; }
 @media(max-width:480px){ .ticket-window-grid{ grid-template-columns:1fr; } }
+
+/* Read-only booked tag (home page schedule teaser — informational only) */
+.ticket-row.is-booked .label{ color:#a39d86; }
+.ticket-row .booked-tag{
+  font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--rust);
+  background:rgba(201,89,13,0.1); padding:2px 8px; border-radius:100px;
+}
+
+/* Interactive time-window picker (furniture-pickup.html booking form) —
+   same "radio hidden behind a clickable card" pattern as .service-toggle,
+   sized down to fit nine options in a ticket-width card. */
+.window-picker{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:4px 0 0; font-family:var(--font-body); }
+@media(max-width:480px){ .window-picker{ grid-template-columns:1fr; } }
+.window-picker input{ position:absolute; opacity:0; pointer-events:none; }
+.window-picker label{
+  display:flex; flex-direction:column; gap:2px; border:1.5px solid var(--kraft-line); border-radius:8px;
+  padding:10px 12px; cursor:pointer; transition:all .15s ease; background:#fff; position:relative;
+}
+.window-picker label b{ font-family:var(--font-display); font-weight:600; font-size:0.74rem; text-transform:uppercase; letter-spacing:0.04em; color:#6b654e; }
+.window-picker label > span:not(.booked-tag){ font-weight:700; color:var(--ink); font-size:0.9rem; }
+.window-picker input:checked + label{ border-color:var(--amber); background:#fff6e6; box-shadow:0 0 0 3px rgba(245,163,0,0.18); }
+.window-picker input:focus-visible + label{ outline:2px solid var(--amber); outline-offset:2px; }
+.window-picker label.is-booked{ cursor:not-allowed; background:#f2efe4; border-color:var(--kraft-line); }
+.window-picker label.is-booked b,
+.window-picker label.is-booked > span:not(.booked-tag){ color:#a39d86; text-decoration:line-through; }
+.window-picker .booked-tag{
+  position:absolute; top:8px; right:10px; font-size:0.6rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.03em; color:var(--rust); background:rgba(201,89,13,0.12); padding:2px 7px; border-radius:100px;
+}
 .ticket.tilt{ transform:rotate(-1.4deg); }
 .ticket.tilt-r{ transform:rotate(1.2deg); }
 .on-light .ticket::before, .on-light .ticket::after{ background-color:var(--concrete); }
