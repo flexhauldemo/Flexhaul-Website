@@ -171,9 +171,40 @@ table.data tr:hover td{ background:rgba(245,163,0,0.05); }
 .badge-scheduled, .badge-in_use{ background:var(--info-bg); color:var(--info); }
 .badge-complete{ background:rgba(75,125,74,0.15); color:var(--good); }
 .badge-invoiced{ background:rgba(245,163,0,0.18); color:#8a5c00; }
+.badge-in_progress{ background:rgba(255,184,28,0.26); color:#8a5c00; }
 .badge-lost, .badge-canceled, .badge-overdue{ background:rgba(201,89,13,0.16); color:var(--rust); }
 .badge-unpaid{ background:rgba(201,89,13,0.12); color:var(--rust); }
 .badge-maintenance{ background:rgba(201,89,13,0.14); color:var(--rust); }
+
+/* ============================= DASHBOARD ============================= */
+.stat-card-icon{ width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
+.stat-card-icon svg{ width:18px; height:18px; }
+.compliance-banner{ background:var(--warn-bg); border:1px solid rgba(201,89,13,0.35); border-radius:12px; padding:16px 18px; margin-bottom:20px; }
+.compliance-banner .head{ display:flex; align-items:center; gap:9px; font-family:var(--font-display); font-weight:700; text-transform:uppercase; font-size:0.85rem; letter-spacing:0.02em; color:var(--rust); margin-bottom:10px; }
+.compliance-banner .head svg{ width:18px; height:18px; flex-shrink:0; }
+.compliance-item{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:8px 0; border-top:1px solid rgba(201,89,13,0.18); font-size:0.85rem; }
+.compliance-item:first-of-type{ border-top:none; }
+.compliance-item .who{ min-width:0; }
+.compliance-item .when{ font-family:var(--font-mono); font-size:0.78rem; white-space:nowrap; flex-shrink:0; }
+.compliance-item .when.is-expired{ color:var(--rust); font-weight:700; }
+.stage-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.job-row{ display:flex; align-items:center; gap:12px; padding:10px 4px; border-radius:10px; cursor:pointer; transition:background 0.12s; }
+.job-row:hover{ background:rgba(28,24,18,0.035); }
+.job-row-main{ flex:1; min-width:0; }
+.job-row-main .name{ font-weight:700; font-size:0.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.job-row-main .addr{ font-size:0.76rem; color:var(--steel); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.job-row-when{ font-family:var(--font-mono); font-size:0.76rem; color:var(--steel); text-align:right; flex-shrink:0; width:112px; }
+.bar-row{ display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(28,24,18,0.06); font-size:0.85rem; }
+.bar-row:last-child{ border-bottom:none; }
+.bar-row .bar-label{ width:130px; flex-shrink:0; font-weight:600; text-transform:capitalize; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bar-row .bar-track{ flex:1; height:8px; background:rgba(28,24,18,0.07); border-radius:4px; overflow:hidden; }
+.bar-row .bar-fill{ display:block; height:100%; background:var(--amber); border-radius:4px; }
+.bar-row .bar-value{ font-family:var(--font-mono); font-size:0.78rem; width:76px; text-align:right; flex-shrink:0; }
+@media(max-width:760px){
+  .job-row-main .addr{ display:none; }
+  .job-row-when{ width:auto; font-size:0.72rem; }
+  .bar-row .bar-label{ width:86px; font-size:0.8rem; }
+}
 
 /* ============================= KANBAN ============================= */
 .pipeline-board{ display:flex; gap:14px; overflow-x:auto; padding-bottom:12px; }
