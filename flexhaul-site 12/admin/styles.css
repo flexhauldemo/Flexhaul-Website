@@ -177,16 +177,34 @@ table.data tr:hover td{ background:rgba(245,163,0,0.05); }
 
 /* ============================= KANBAN ============================= */
 .pipeline-board{ display:flex; gap:14px; overflow-x:auto; padding-bottom:12px; }
-.pipeline-col{ flex:0 0 270px; background:rgba(28,24,18,0.03); border-radius:12px; padding:12px; }
-.pipeline-col-head{ display:flex; align-items:center; justify-content:space-between; padding:6px 6px 12px; }
-.pipeline-col-head h3{ font-size:0.85rem; }
-.pipeline-col-head .count{ font-family:var(--font-mono); font-size:0.78rem; color:var(--steel); background:rgba(28,24,18,0.06); padding:2px 9px; border-radius:999px; }
-.deal-card{ background:#fff; border:1px solid rgba(28,24,18,0.08); border-radius:10px; padding:14px; margin-bottom:10px; cursor:pointer; }
-.deal-card:hover{ border-color:rgba(245,163,0,0.4); }
-.deal-card .name{ font-weight:700; font-size:0.95rem; }
-.deal-card .meta{ font-size:0.8rem; color:var(--steel); margin-top:4px; }
-.deal-card .value{ font-family:var(--font-mono); font-weight:700; color:var(--rust); margin-top:8px; font-size:0.9rem; }
-.deal-card select{ margin-top:10px; width:100%; font-size:0.78rem; padding:7px 8px; min-height:36px; }
+.pipeline-list{ border:1px solid rgba(28,24,18,0.08); border-radius:12px; overflow:hidden; background:#fff; }
+.pipeline-toolbar{ display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid rgba(28,24,18,0.08); flex-wrap:wrap; }
+.pipeline-toolbar .total{ font-family:var(--font-mono); font-size:0.8rem; color:var(--steel); }
+.pipeline-group-head{ display:flex; align-items:center; gap:8px; padding:12px 16px 6px; cursor:pointer; user-select:none; }
+.pipeline-group-head:first-child{ padding-top:14px; }
+.pipeline-group-head:not(:first-child){ border-top:1px solid rgba(28,24,18,0.08); padding-top:12px; }
+.pipeline-group-head .chev{ font-size:0.7rem; color:var(--steel); transition:transform 0.15s; }
+.pipeline-group-head.collapsed .chev{ transform:rotate(-90deg); }
+.pipeline-group-head h3{ font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--steel); margin:0; }
+.pipeline-group-head .count{ font-family:var(--font-mono); font-size:0.72rem; color:var(--steel-light); }
+.pipeline-group-body{ padding:2px 10px 12px; }
+.pipeline-group-body.collapsed{ display:none; }
+.deal-row{ display:flex; align-items:center; gap:14px; padding:10px 10px; border-radius:10px; cursor:pointer; transition:background 0.12s; }
+.deal-row:hover{ background:rgba(28,24,18,0.035); }
+.deal-avatar{ width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.72rem; font-weight:700; flex-shrink:0; }
+.deal-row-main{ flex:1; min-width:0; }
+.deal-row-main .name{ font-weight:700; font-size:0.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.deal-row-main .meta{ font-size:0.76rem; color:var(--steel); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.deal-progress{ display:flex; align-items:center; gap:3px; width:120px; flex-shrink:0; }
+.deal-progress .dot{ width:7px; height:7px; border-radius:50%; background:rgba(28,24,18,0.12); flex-shrink:0; }
+.deal-progress .dot.filled{ background:var(--dot-color, var(--rust)); }
+.deal-progress .bar{ flex:1; height:2px; background:rgba(28,24,18,0.12); }
+.deal-progress .bar.filled{ background:var(--dot-color, var(--rust)); }
+.deal-progress .lost-label{ font-size:0.72rem; color:var(--rust); font-weight:700; text-transform:uppercase; letter-spacing:0.03em; }
+.deal-row-value{ font-family:var(--font-mono); font-weight:700; font-size:0.85rem; width:64px; text-align:right; flex-shrink:0; }
+.deal-row-stage{ width:118px; flex-shrink:0; font-size:0.72rem; padding:5px 6px; min-height:auto; border-radius:6px; border:1px solid transparent; background:transparent; color:var(--steel); }
+.deal-row-stage:hover{ border-color:rgba(28,24,18,0.15); background:#fff; }
+@media(max-width:760px){ .deal-progress{ display:none; } .deal-row-stage{ width:90px; } }
 
 /* ============================= MODAL ============================= */
 .modal-overlay{ position:fixed; inset:0; background:rgba(21,19,15,0.7); display:none; align-items:center; justify-content:center; z-index:100; padding:20px; }
@@ -226,15 +244,3 @@ table.data tr:hover td{ background:rgba(245,163,0,0.05); }
 .flex{ display:flex; } .items-center{ align-items:center; } .gap-8{ gap:8px; } .gap-12{ gap:12px; }
 .doc-thumb{ display:flex; align-items:center; gap:10px; padding:10px; background:#fff; border-radius:8px; border:1px solid rgba(28,24,18,0.08); margin-bottom:8px; }
 .doc-thumb img{ width:44px; height:44px; object-fit:cover; border-radius:6px; }
-/* ===================== JOBS LIST — CUSTOMER GROUPING ===================== */
-/* A customer with more than one job collapses to one row with an expand
-   toggle, instead of repeating their name down the table once per job. */
-.job-group-header td{ background:rgba(245,163,0,0.06); }
-.job-group-header:hover td{ background:rgba(245,163,0,0.1); }
-.group-toggle{
-  width:26px; height:26px; border-radius:6px; border:1px solid rgba(28,24,18,0.15);
-  background:#fff; color:var(--steel); font-size:0.8rem; line-height:1;
-  cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
-}
-.group-toggle:hover{ background:var(--concrete); color:var(--ink); }
-.job-subrow td{ background:#fbf9f4; }
