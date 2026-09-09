@@ -1,373 +1,141 @@
-// admin/views/jobs.js
-(function () {
-  "use strict";
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlexHaul CRM</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="admin/images/favicon-64.png">
+<link rel="stylesheet" href="admin/styles.css">
+<script>
+  // Set this to your deployed backend's URL before going live, e.g.:
+  //   window.FLEXHAUL_API_BASE = "https://flexhaul-crm-api.onrender.com/api";
+  // Left pointing at localhost for local development.
+  window.FLEXHAUL_API_BASE = "https://flexhaul-crm-backend.onrender.com/api";
+</script>
+</head>
+<body>
 
-  function esc(s) {
-    if (s === undefined || s === null) return "";
-    return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  }
-  function fmtDate(d) {
-    if (!d) return "Unscheduled";
-    try { return new Date(d + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }); }
-    catch (e) { return d; }
-  }
-  // Formats a stored time-slot key ("08:00-10:00") into a human label
-  // ("8:00 AM – 10:00 AM") without needing another API round-trip — the
-  // key format is stable (see api/constants/timeSlots.js).
-  function fmtTimeSlot(key) {
-    if (!key) return null;
-    const [start, end] = key.split("-");
-    const fmt = (t) => {
-      let [h, m] = t.split(":").map(Number);
-      const ampm = h >= 12 ? "PM" : "AM";
-      h = h % 12 || 12;
-      return `${h}:${String(m).padStart(2, "0")} ${ampm}`;
-    };
-    return `${fmt(start)} \u2013 ${fmt(end)}`;
-  }
-  // Human label for a stage change toast, e.g. "won" -> "Won".
-  function stageLabel(stage) {
-    const labels = { won: "Won", scheduled: "Scheduled", complete: "Complete", invoiced: "Invoiced" };
-    return labels[stage] || stage;
-  }
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+<defs>
+<symbol id="icon-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></symbol>
+<symbol id="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></symbol>
+<symbol id="icon-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L14 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 2 6a2 2 0 0 1 2-2Z"/></symbol>
+<symbol id="icon-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></symbol>
+<symbol id="icon-map-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-7.2 7-12a7 7 0 0 0-14 0c0 4.8 7 12 7 12Z"/><circle cx="12" cy="10" r="2.4"/></symbol>
+<symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6"/></symbol>
+<symbol id="icon-truck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="7" width="12" height="9" rx="1"/><path d="M13.5 10.5H18l3.5 3v2.5H20"/><circle cx="6" cy="18" r="1.7"/><circle cx="17.2" cy="18" r="1.7"/></symbol>
+<symbol id="icon-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 19c0-3.3 3-5.5 6.5-5.5s6.5 2.2 6.5 5.5"/><circle cx="17" cy="8.5" r="2.4"/><path d="M15.8 13.7c2.6.3 4.7 2.2 4.7 5.3"/></symbol>
+<symbol id="icon-dollar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2.5" x2="12" y2="21.5"/><path d="M16.5 6.5c0-1.7-2-3-4.5-3s-4.5 1.1-4.5 2.8c0 4 9 2 9 6 0 1.7-2 2.9-4.5 2.9s-4.5-1.2-4.5-2.9"/></symbol>
+<symbol id="icon-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="19" y2="12"/><path d="M13 6l7 6-7 6"/></symbol>
+<symbol id="icon-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M9 5l7 7-7 7"/>
+</symbol>
+<symbol id="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+</symbol>
+<symbol id="icon-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+</symbol>
+<symbol id="icon-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2.5" width="6" height="3.5" rx="1"/>
+  <line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="16" y2="15"/>
+</symbol>
+<symbol id="icon-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3.5" y="5" width="17" height="16" rx="2"/><line x1="3.5" y1="10" x2="20.5" y2="10"/>
+  <line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/>
+</symbol>
+<symbol id="icon-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 3 2 20h20L12 3Z"/><line x1="12" y1="9.5" x2="12" y2="14"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/>
+</symbol>
+<symbol id="icon-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 4v12M8 12l4 4 4-4"/><path d="M4 18v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+</symbol>
+<symbol id="icon-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13a2 2 0 0 0 2 1.8h6a2 2 0 0 0 2-1.8l1-13"/>
+</symbol>
+<symbol id="icon-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13.5" r="3.4"/>
+</symbol>
+<symbol id="icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="10.5" cy="10.5" r="6.5"/><line x1="20" y1="20" x2="15.2" y2="15.2"/>
+</symbol>
+</defs>
+</svg>
 
-  async function render(container) {
-    container.innerHTML = `
-      <div class="main-header">
-        <h1>Jobs</h1>
-        <button class="btn btn-primary" id="newJobBtn"><svg><use href="#icon-plus"/></svg> New Job</button>
+
+<!-- LOGIN SCREEN ============================================================ -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-brand">
+      <img src="admin/images/logo-icon.png" alt="FlexHaul">
+      <div class="word">FlexHaul CRM</div>
+      <div class="sub">Staff Access Only</div>
+    </div>
+
+    <div class="login-error" id="loginError"></div>
+
+    <form id="loginForm">
+      <div class="login-field">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" autocomplete="username" required>
       </div>
-      <div class="table-wrap" id="jobsTableWrap"></div>
-    `;
-
-    document.getElementById("newJobBtn").addEventListener("click", () => openNewJobModal());
-    await loadList();
-
-    if (window.__openJobId) {
-      const id = window.__openJobId;
-      window.__openJobId = null;
-      openJobDetail(id);
-    }
-    if (window.__prefillDealId) {
-      const dealId = window.__prefillDealId;
-      window.__prefillDealId = null;
-      openNewJobModal(dealId);
-    }
-  }
-
-  // Renders one <tr> for a job. isChild rows belong to a multi-job
-  // customer group and are hidden until that group is expanded.
-  function jobRowHtml(j, isChild, groupId) {
-    return `
-      <tr data-id="${j.id}" ${isChild ? `data-child-of="${groupId}" class="job-subrow"` : ""}>
-        <td>${fmtDate(j.scheduled_date)}</td>
-        <td>${esc(fmtTimeSlot(j.scheduled_time_slot) || "\u2014")}</td>
-        <td>${isChild ? '<span class="text-dim">\u21B3</span> ' : ""}${esc(j.customer_name)}</td>
-        <td>${esc(j.address || "\u2014")}</td>
-        <td>${esc(j.crew_name || "\u2014")}</td>
-        <td><span class="badge badge-${j.status}">${esc(j.status.replace("_", " "))}</span></td>
-      </tr>
-    `;
-  }
-
-  async function loadList() {
-    const wrap = document.getElementById("jobsTableWrap");
-    const { jobs } = await Api.listJobs();
-
-    if (jobs.length === 0) {
-      wrap.innerHTML = '<div class="empty-state">No jobs yet.</div>';
-      return;
-    }
-
-    // Group jobs by customer so a repeat customer with several jobs
-    // (recurring service, or a second order added later) reads as ONE
-    // line with a small expand toggle, instead of their name repeated
-    // down the table once per job. A customer with only one job renders
-    // exactly as before — no extra chrome for the common case.
-    const order = [];
-    const groups = new Map();
-    jobs.forEach((j) => {
-      if (!groups.has(j.customer_id)) {
-        groups.set(j.customer_id, { customer_id: j.customer_id, customer_name: j.customer_name, jobs: [] });
-        order.push(j.customer_id);
-      }
-      groups.get(j.customer_id).jobs.push(j);
-    });
-
-    const bodyHtml = order.map((custId) => {
-      const group = groups.get(custId);
-      if (group.jobs.length === 1) return jobRowHtml(group.jobs[0], false);
-
-      const groupId = `grp-${custId}`;
-      const sorted = group.jobs.slice().sort((a, b) => (a.scheduled_date || "9999-99-99").localeCompare(b.scheduled_date || "9999-99-99"));
-      const nextJob = sorted.find((j) => j.status !== "complete" && j.status !== "canceled") || sorted[0];
-      const openCount = group.jobs.filter((j) => j.status !== "complete" && j.status !== "canceled").length;
-
-      return `
-        <tr class="job-group-header" data-group="${groupId}">
-          <td colspan="2"><button type="button" class="group-toggle" data-group="${groupId}" aria-label="Expand jobs">\u25B8</button></td>
-          <td><strong>${esc(group.customer_name)}</strong></td>
-          <td class="text-dim" colspan="2">${group.jobs.length} jobs \u2014 ${openCount} open \u2014 next: ${fmtDate(nextJob.scheduled_date)}</td>
-          <td></td>
-        </tr>
-        ${sorted.map((j) => jobRowHtml(j, true, groupId)).join("")}
-      `;
-    }).join("");
-
-    wrap.innerHTML = `
-      <table class="data">
-        <thead><tr><th>Date</th><th>Time Window</th><th>Customer</th><th>Address</th><th>Crew</th><th>Status</th></tr></thead>
-        <tbody>${bodyHtml}</tbody>
-      </table>
-    `;
-
-    // Sub-rows start collapsed under their group header. The whole header
-    // row is the tap target (not just the small caret button) — this app
-    // is built for checking jobs from a truck cab, so it follows the same
-    // large-tap-target rule as everything else here.
-    wrap.querySelectorAll("tr[data-child-of]").forEach((tr) => { tr.style.display = "none"; });
-
-    wrap.querySelectorAll(".job-group-header").forEach((headerRow) => {
-      headerRow.addEventListener("click", () => {
-        const groupId = headerRow.dataset.group;
-        const btn = headerRow.querySelector(".group-toggle");
-        const expanded = btn.textContent === "\u25BE";
-        btn.textContent = expanded ? "\u25B8" : "\u25BE";
-        wrap.querySelectorAll(`tr[data-child-of="${groupId}"]`).forEach((tr) => {
-          tr.style.display = expanded ? "none" : "";
-        });
-      });
-    });
-
-    wrap.querySelectorAll("tr[data-id]").forEach((tr) => {
-      tr.addEventListener("click", () => openJobDetail(tr.dataset.id));
-    });
-  }
-
-  async function openNewJobModal(prefillDealId) {
-    const overlay = buildModal("New Job", `
-      <div class="field">
-        <label>Deal (must be a won deal)</label>
-        <select id="jDeal"><option value="">Loading\u2026</option></select>
+      <div class="login-field">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" autocomplete="current-password" required>
       </div>
-      <div class="form-row">
-        <div class="field"><label>Scheduled Date</label><input type="date" id="jDate"></div>
-        <div class="field">
-          <label>Time Window</label>
-          <select id="jTimeSlot"><option value="">\u2014 No specific window \u2014</option></select>
-        </div>
-      </div>
-      <div class="field">
-        <label>Crew</label>
-        <select id="jCrew"><option value="">\u2014 Unassigned \u2014</option></select>
-      </div>
-      <div class="field"><label>Address</label><input type="text" id="jAddress"></div>
-      <div class="field"><label>Notes</label><textarea id="jNotes"></textarea></div>
-      <button class="btn btn-primary" id="saveJobBtn" style="width:100%;">Create Job</button>
-    `);
+      <button type="submit" class="btn-login" id="loginBtn">Log In</button>
+    </form>
+  </div>
+</div>
 
-    const [{ deals }, { crews }, { timeSlots }] = await Promise.all([Api.listDeals(), Api.listCrews(), Api.listTimeSlots()]);
-    const wonDeals = deals.filter((d) => ["won", "scheduled", "complete"].includes(d.stage));
-    overlay.querySelector("#jDeal").innerHTML = wonDeals.map(
-      (d) => `<option value="${d.id}" ${String(d.id) === String(prefillDealId) ? "selected" : ""}>${esc(d.customer_name)} \u2014 ${esc(d.stage)}</option>`
-    ).join("") || '<option value="">No won deals yet</option>';
-    overlay.querySelector("#jCrew").innerHTML += crews.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
-    overlay.querySelector("#jTimeSlot").innerHTML += timeSlots.map((s) => `<option value="${s.key}">${esc(s.label)}</option>`).join("");
+<!-- APP SHELL ============================================================ -->
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <img src="admin/images/logo-icon.png" alt="FlexHaul">
+      <div class="word">FLEXHAUL<span>CRM</span></div>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-user" id="topbarUser"></span>
+      <button class="btn-logout" id="logoutBtn">Log Out</button>
+    </div>
+  </header>
 
-    overlay.querySelector("#saveJobBtn").addEventListener("click", async () => {
-      const dealId = overlay.querySelector("#jDeal").value;
-      if (!dealId) { showToast("Select a deal first", true); return; }
-      try {
-        const result = await Api.createJob({
-          deal_id: dealId,
-          scheduled_date: overlay.querySelector("#jDate").value || null,
-          scheduled_time_slot: overlay.querySelector("#jTimeSlot").value || null,
-          crew_id: overlay.querySelector("#jCrew").value || null,
-          address: overlay.querySelector("#jAddress").value.trim(),
-          notes: overlay.querySelector("#jNotes").value.trim(),
-        });
-        closeModal();
-        showToast(
-          result.deal_stage_change
-            ? `Job created \u2014 pipeline moved to ${stageLabel(result.deal_stage_change)} automatically.`
-            : "Job created"
-        );
-        await loadList();
-      } catch (err) {
-        showToast(err.message, true);
-      }
-    });
-  }
+  <div class="shell">
+    <nav class="nav-rail" id="navRail">
+      <button class="nav-item" data-view="dashboard"><svg><use href="#icon-clipboard"/></svg> Dashboard</button>
+      <button class="nav-item" data-view="pipeline"><svg><use href="#icon-dollar"/></svg> Pipeline</button>
+      <button class="nav-item" data-view="customers"><svg><use href="#icon-users"/></svg> Customers</button>
+      <button class="nav-item" data-view="jobs"><svg><use href="#icon-truck"/></svg> Jobs</button>
+      <button class="nav-item" data-view="calendar"><svg><use href="#icon-calendar"/></svg> Calendar</button>
+      <button class="nav-item" data-view="invoices"><svg><use href="#icon-dollar"/></svg> Invoices</button>
+    </nav>
 
-  async function openJobDetail(id) {
-    const [{ job, documents, invoices, history }, { timeSlots }] = await Promise.all([Api.getJob(id), Api.listTimeSlots()]);
+    <main class="main" id="mainContent">
+      <div class="loading">Loading\u2026</div>
+    </main>
+  </div>
 
-    const historyHtml = (history && history.length)
-      ? history.map((h) => `
-          <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(28,24,18,0.08);">
-            <span>${fmtDate(h.scheduled_date)} \u2014 ${esc(h.address || "\u2014")}</span>
-            <span class="badge badge-${h.status}">${esc(h.status.replace("_", " "))}</span>
-          </div>
-        `).join("")
-      : '<p class="text-dim">No other jobs on file for this customer.</p>';
+  <nav class="mobile-nav" id="mobileNav">
+    <button class="nav-item" data-view="dashboard"><svg><use href="#icon-clipboard"/></svg> Home</button>
+    <button class="nav-item" data-view="pipeline"><svg><use href="#icon-dollar"/></svg> Pipeline</button>
+    <button class="nav-item" data-view="customers"><svg><use href="#icon-users"/></svg> Cust</button>
+    <button class="nav-item" data-view="jobs"><svg><use href="#icon-truck"/></svg> Jobs</button>
+    <button class="nav-item" data-view="calendar"><svg><use href="#icon-calendar"/></svg> Cal</button>
+    <button class="nav-item" data-view="invoices"><svg><use href="#icon-dollar"/></svg> Inv</button>
+  </nav>
+</div>
 
-    const overlay = buildModal(esc(job.customer_name), `
-      <div class="card" style="padding:14px; margin-bottom:20px; background:rgba(245,163,0,0.08); border-color:rgba(245,163,0,0.3);">
-        <div style="font-family:var(--font-display); font-weight:700; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--rust); margin-bottom:8px;">Customer</div>
-        <div style="font-size:0.92rem; line-height:1.6;">
-          ${esc(job.customer_phone || "\u2014")}${job.customer_email ? " \u00b7 " + esc(job.customer_email) : ""}<br>
-          ${job.customer_address ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.customer_address)}" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-decoration-style:dotted;">${esc(job.customer_address)}</a>` : "No address on file"}
-        </div>
-      </div>
+<div class="toast" id="toast"></div>
 
-      <div class="form-row">
-        <div class="field">
-          <label>Status</label>
-          <select id="jobStatusSelect">
-            ${["scheduled","in_progress","complete","canceled"].map(s =>
-              `<option value="${s}" ${s===job.status?"selected":""}>${s.replace("_"," ")}</option>`).join("")}
-          </select>
-        </div>
-        <div class="field"><label>Scheduled Date</label><input type="date" id="jobDateInput" value="${job.scheduled_date || ""}"></div>
-      </div>
-      <div class="field">
-        <label>Time Window</label>
-        <select id="jobTimeSlotSelect">
-          <option value="">\u2014 No specific window \u2014</option>
-          ${timeSlots.map((s) => `<option value="${s.key}" ${s.key === job.scheduled_time_slot ? "selected" : ""}>${esc(s.label)}</option>`).join("")}
-        </select>
-      </div>
-      <div class="field"><label>Address</label><input type="text" id="jobAddressInput" value="${esc(job.address || "")}"></div>
-      <div class="field"><label>Notes</label><textarea id="jobNotesInput">${esc(job.notes || "")}</textarea></div>
-      <button class="btn btn-ghost btn-sm" id="saveJobDetailBtn" style="margin-bottom:20px;">Save Changes</button>
-
-      <h3 style="font-size:0.85rem; margin-bottom:10px;">Photos &amp; Documents</h3>
-      <div id="docsWrap">${renderDocs(documents)}</div>
-      <div class="field" style="margin-top:10px;">
-        <label>Upload Photo or Document</label>
-        <input type="file" id="docFileInput" accept="image/*,application/pdf">
-        <select id="docTypeSelect" style="margin-top:8px;">
-          <option value="photo">Photo</option>
-          <option value="permit">Permit</option>
-          <option value="environmental_survey">Environmental Survey</option>
-          <option value="coi">Certificate of Insurance</option>
-          <option value="other">Other</option>
-        </select>
-        <button class="btn btn-ghost btn-sm" id="uploadDocBtn" style="margin-top:8px;"><svg><use href="#icon-upload"/></svg> Upload</button>
-      </div>
-
-      <h3 style="font-size:0.85rem; margin:20px 0 10px;">Invoices</h3>
-      ${!invoices || invoices.length === 0 ? '<p class="text-dim" style="margin-bottom:12px;">No invoices yet.</p>' :
-        invoices.map(inv => `<div class="card" style="padding:12px; margin-bottom:8px; display:flex; justify-content:space-between;">
-          <span class="badge badge-${inv.status}">${esc(inv.status)}</span>
-          <span style="font-family:var(--font-mono);">$${Number(inv.amount).toLocaleString()}</span>
-        </div>`).join("")
-      }
-      <button class="btn btn-ghost btn-sm" id="goInvoicesBtn">Manage Invoices \u2192</button>
-
-      <h3 style="font-size:0.85rem; margin:20px 0 10px;">Customer History</h3>
-      ${historyHtml}
-    `);
-
-    overlay.querySelector("#saveJobDetailBtn").addEventListener("click", async () => {
-      try {
-        const result = await Api.updateJob(id, {
-          status: overlay.querySelector("#jobStatusSelect").value,
-          scheduled_date: overlay.querySelector("#jobDateInput").value || null,
-          scheduled_time_slot: overlay.querySelector("#jobTimeSlotSelect").value || null,
-          address: overlay.querySelector("#jobAddressInput").value.trim(),
-          notes: overlay.querySelector("#jobNotesInput").value.trim(),
-        });
-        if (result.deal_stage_change) {
-          showToast(`Job updated \u2014 pipeline moved to ${stageLabel(result.deal_stage_change)} automatically.`);
-        } else if (result.spawned_job) {
-          showToast(`Job updated \u2014 next occurrence (job #${result.spawned_job.id}) auto-scheduled.`);
-        } else {
-          showToast("Job updated");
-        }
-        await loadList();
-      } catch (err) {
-        showToast(err.message, true);
-      }
-    });
-
-    overlay.querySelector("#uploadDocBtn").addEventListener("click", async () => {
-      const fileInput = overlay.querySelector("#docFileInput");
-      if (!fileInput.files[0]) { showToast("Choose a file first", true); return; }
-      const fd = new FormData();
-      fd.append("file", fileInput.files[0]);
-      fd.append("job_id", id);
-      fd.append("type", overlay.querySelector("#docTypeSelect").value);
-      try {
-        await Api.uploadDocument(fd);
-        const { documents: freshDocs } = await Api.getJob(id).then(r => r);
-        overlay.querySelector("#docsWrap").innerHTML = renderDocs(freshDocs);
-        wireDocDeletes(overlay, id);
-        showToast("Document uploaded");
-      } catch (err) {
-        showToast(err.message, true);
-      }
-    });
-
-    overlay.querySelector("#goInvoicesBtn").addEventListener("click", () => {
-      closeModal();
-      navigateTo("invoices");
-    });
-
-    wireDocDeletes(overlay, id);
-  }
-
-  function renderDocs(documents) {
-    if (documents.length === 0) return '<p class="text-dim">No documents yet.</p>';
-    return documents.map((d) => `
-      <div class="doc-thumb" data-doc-id="${d.id}">
-        <div style="flex:1;">
-          <div style="font-size:0.85rem; font-weight:600;">${esc(d.original_name || d.file_url)}</div>
-          <div class="small-note">${esc(d.type)}</div>
-        </div>
-        <button class="btn btn-danger btn-sm doc-delete-btn" data-doc-id="${d.id}"><svg><use href="#icon-trash"/></svg></button>
-      </div>
-    `).join("");
-  }
-
-  function wireDocDeletes(overlay, jobId) {
-    overlay.querySelectorAll(".doc-delete-btn").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        if (!confirm("Delete this document?")) return;
-        try {
-          await Api.deleteDocument(btn.dataset.docId);
-          const { documents } = await Api.getJob(jobId);
-          overlay.querySelector("#docsWrap").innerHTML = renderDocs(documents);
-          wireDocDeletes(overlay, jobId);
-          showToast("Document deleted");
-        } catch (err) {
-          showToast(err.message, true);
-        }
-      });
-    });
-  }
-
-  function buildModal(title, bodyHtml) {
-    closeModal();
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay is-open";
-    overlay.id = "activeModal";
-    overlay.innerHTML = `
-      <div class="modal">
-        <div class="modal-head"><h2 style="font-size:1.15rem;">${title}</h2><button class="modal-close">\u2715</button></div>
-        <div class="modal-body">${bodyHtml}</div>
-      </div>
-    `;
-    overlay.querySelector(".modal-close").addEventListener("click", closeModal);
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
-    document.body.appendChild(overlay);
-    return overlay;
-  }
-  function closeModal() {
-    const existing = document.getElementById("activeModal");
-    if (existing) existing.remove();
-  }
-
-  window.Views = window.Views || {};
-  window.Views.jobs = render;
-})();
+<script src="admin/api.js"></script>
+<script src="admin/views/dashboard.js"></script>
+<script src="admin/views/pipeline.js"></script>
+<script src="admin/views/customers.js"></script>
+<script src="admin/views/jobs.js"></script>
+<script src="admin/views/calendar.js"></script>
+<script src="admin/views/invoices.js"></script>
+<script src="admin/app.js"></script>
+</body>
+</html>
