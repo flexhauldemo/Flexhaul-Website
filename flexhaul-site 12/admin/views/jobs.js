@@ -200,9 +200,26 @@
   }
 
   async function openJobDetail(id) {
-    const [{ job, documents, invoices }, { timeSlots }] = await Promise.all([Api.getJob(id), Api.listTimeSlots()]);
+    const [{ job, documents, invoices, history }, { timeSlots }] = await Promise.all([Api.getJob(id), Api.listTimeSlots()]);
+
+    const historyHtml = (history && history.length)
+      ? history.map((h) => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(28,24,18,0.08);">
+            <span>${fmtDate(h.scheduled_date)} \u2014 ${esc(h.address || "\u2014")}</span>
+            <span class="badge badge-${h.status}">${esc(h.status.replace("_", " "))}</span>
+          </div>
+        `).join("")
+      : '<p class="text-dim">No other jobs on file for this customer.</p>';
 
     const overlay = buildModal(esc(job.customer_name), `
+      <div class="card" style="padding:14px; margin-bottom:20px; background:rgba(245,163,0,0.08); border-color:rgba(245,163,0,0.3);">
+        <div style="font-family:var(--font-display); font-weight:700; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--rust); margin-bottom:8px;">Customer</div>
+        <div style="font-size:0.92rem; line-height:1.6;">
+          ${esc(job.customer_phone || "\u2014")}${job.customer_email ? " \u00b7 " + esc(job.customer_email) : ""}<br>
+          ${job.customer_address ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.customer_address)}" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-decoration-style:dotted;">${esc(job.customer_address)}</a>` : "No address on file"}
+        </div>
+      </div>
+
       <div class="form-row">
         <div class="field">
           <label>Status</label>
@@ -240,13 +257,16 @@
       </div>
 
       <h3 style="font-size:0.85rem; margin:20px 0 10px;">Invoices</h3>
-      ${invoices.length === 0 ? '<p class="text-dim" style="margin-bottom:12px;">No invoices yet.</p>' :
+      ${!invoices || invoices.length === 0 ? '<p class="text-dim" style="margin-bottom:12px;">No invoices yet.</p>' :
         invoices.map(inv => `<div class="card" style="padding:12px; margin-bottom:8px; display:flex; justify-content:space-between;">
           <span class="badge badge-${inv.status}">${esc(inv.status)}</span>
           <span style="font-family:var(--font-mono);">$${Number(inv.amount).toLocaleString()}</span>
         </div>`).join("")
       }
       <button class="btn btn-ghost btn-sm" id="goInvoicesBtn">Manage Invoices \u2192</button>
+
+      <h3 style="font-size:0.85rem; margin:20px 0 10px;">Customer History</h3>
+      ${historyHtml}
     `);
 
     overlay.querySelector("#saveJobDetailBtn").addEventListener("click", async () => {
