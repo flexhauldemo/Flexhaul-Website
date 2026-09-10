@@ -347,7 +347,7 @@
       <h3 style="font-size:0.85rem; margin-bottom:10px;">Estimates</h3>
       <div id="estimatesWrap">${estimates.length === 0 ? '<p class="text-dim" style="margin-bottom:16px;">No estimates yet.</p>' :
         estimates.map(e => {
-          const canEdit = !e.accepted && ["new_lead", "quoted"].includes(deal.stage);
+          const canEdit = !e.accepted;
           return `
           <div class="card" style="padding:12px; margin-bottom:8px;">
             <div class="flex items-center" style="justify-content:space-between; gap:12px;">
@@ -492,12 +492,16 @@
 
     overlay.querySelectorAll(".accept-estimate-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        if (!confirm("Accept this estimate? This moves the deal to Won and creates a job, ready to schedule.")) return;
+        if (!confirm("Accept this estimate? If this deal doesn't have a job yet, this creates one, ready to schedule.")) return;
         btn.disabled = true;
         btn.textContent = "Working\u2026";
         try {
           const result = await Api.acceptEstimate(btn.dataset.estimateId);
-          showToast(`Accepted \u2014 job #${result.job.id} created. Schedule it below when ready.`);
+          showToast(
+            result.job_already_existed
+              ? `Accepted \u2014 job #${result.job.id} already existed for this deal, so its price was just updated.`
+              : `Accepted \u2014 job #${result.job.id} created. Schedule it below when ready.`
+          );
           await refreshDealDetail(dealId);
         } catch (err) {
           showToast(err.message, true);
