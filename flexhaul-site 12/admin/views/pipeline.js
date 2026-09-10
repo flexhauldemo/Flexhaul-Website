@@ -134,6 +134,7 @@
   async function loadBoard() {
     const board = document.getElementById("pipelineBoard");
     const { deals } = await Api.listDeals();
+    lastLoadedDeals = deals;
 
     const openDeals = deals.filter((d) => OPEN_STAGES.includes(d.stage));
     const closedDeals = deals.filter((d) => !OPEN_STAGES.includes(d.stage));
@@ -141,7 +142,7 @@
 
     const groups = [
       { key: "open", label: "Open deals", items: openDeals, defaultOpen: true },
-      { key: "closed", label: "Closed", items: closedDeals, defaultOpen: false },
+      { key: "closed", label: "Complete \u2014 awaiting payment", items: closedDeals, defaultOpen: false },
     ];
 
     board.innerHTML = `
@@ -183,8 +184,27 @@
       sel.addEventListener("click", (e) => e.stopPropagation());
       sel.addEventListener("change", async (e) => {
         e.stopPropagation();
+        const dealId = sel.dataset.dealId;
+
+        if (sel.value === "lost") {
+          // Revert the visible dropdown immediately — it only actually
+          // moves to Lost once a reason is confirmed in the modal below,
+          // so canceling leaves nothing changed on screen.
+          sel.value = existingStageFor(dealId);
+          openLostReasonModal(dealId, async (reason) => {
+            try {
+              await Api.updateDeal(dealId, { stage: "lost", lost_reason: reason });
+              showToast("Moved to Lost \u2014 archived, and the estimate was cleared.");
+              await loadBoard();
+            } catch (err) {
+              showToast(err.message, true);
+            }
+          });
+          return;
+        }
+
         try {
-          const result = await Api.updateDeal(sel.dataset.dealId, { stage: sel.value });
+          const result = await Api.updateDeal(dealId, { stage: sel.value });
           if (result.auto_created) {
             showToast("Deal won \u2014 a job and an unpaid invoice were created automatically. Just add a date on the Jobs tab.");
           } else {
@@ -196,6 +216,39 @@
         }
       });
     });
+  }
+
+  let lastLoadedDeals = [];
+  function existingStageFor(dealId) {
+    const d = lastLoadedDeals.find((x) => String(x.id) === String(dealId));
+    return d ? d.stage : "new_lead";
+  }
+
+  function openLostReasonModal(dealId, onConfirm) {
+    const overlay = buildModal("Mark as Lost", `
+      <p class="small-note" style="margin-bottom:16px;">This archives the deal off the Pipeline and clears its estimate. The customer's contact info stays on file.</p>
+      <div class="field">
+        <label>Reason</label>
+        <select id="lostReasonSelect"><option value="">Loading\u2026</option></select>
+      </div>
+      <div class="flex gap-8">
+        <button class="btn btn-ghost" id="cancelLostBtn" style="flex:1;">Cancel</button>
+        <button class="btn btn-primary" id="confirmLostBtn" style="flex:1;">Mark as Lost</button>
+      </div>
+    `);
+
+    Api.listLostReasons().then(({ reasons }) => {
+      overlay.querySelector("#lostReasonSelect").innerHTML = reasons.map((r) => `<option value="${esc(r)}">${esc(r)}</option>`).join("");
+    }).catch(() => {
+      overlay.querySelector("#lostReasonSelect").innerHTML = '<option value="Other">Other</option>';
+    });
+
+    overlay.querySelector("#confirmLostBtn").addEventListener("click", () => {
+      const reason = overlay.querySelector("#lostReasonSelect").value || "Other";
+      closeModal();
+      onConfirm(reason);
+    });
+    overlay.querySelector("#cancelLostBtn").addEventListener("click", closeModal);
   }
 
   function openNewDealModal() {
@@ -293,7 +346,9 @@
 
       <h3 style="font-size:0.85rem; margin-bottom:10px;">Estimates</h3>
       <div id="estimatesWrap">${estimates.length === 0 ? '<p class="text-dim" style="margin-bottom:16px;">No estimates yet.</p>' :
-        estimates.map(e => `
+        estimates.map(e => {
+          const canEdit = !e.accepted && ["new_lead", "quoted"].includes(deal.stage);
+          return `
           <div class="card" style="padding:12px; margin-bottom:8px;">
             <div class="flex items-center" style="justify-content:space-between; gap:12px;">
               <span>Total: <strong>${money(e.total)}</strong></span>
@@ -303,8 +358,15 @@
               }
             </div>
             ${!e.accepted ? `<button class="btn btn-ghost btn-sm copy-estimate-link-btn" data-token="${e.share_token}" style="margin-top:10px; width:100%;"><svg><use href="#icon-download"/></svg> Copy Customer Approval Link</button>` : ""}
+            ${canEdit ? `
+              <div class="flex gap-8" style="margin-top:8px;">
+                <button class="btn btn-ghost btn-sm edit-estimate-btn" data-estimate-id="${e.id}" style="flex:1;">Edit</button>
+                <button class="btn btn-danger btn-sm delete-estimate-btn" data-estimate-id="${e.id}" style="flex:1;"><svg><use href="#icon-trash"/></svg> Delete</button>
+              </div>
+            ` : e.accepted ? `<p class="small-note" style="margin-top:8px;">Accepted estimates are locked \u2014 create a new one if the price needs to change.</p>` : ""}
           </div>
-        `).join("")
+        `;
+        }).join("")
       }</div>
       <button class="btn btn-ghost btn-sm" id="newEstimateBtn" style="margin-bottom:20px;"><svg><use href="#icon-plus"/></svg> New Estimate</button>
 
@@ -406,6 +468,28 @@
     const estBtn = overlay.querySelector("#newEstimateBtn");
     if (estBtn) estBtn.addEventListener("click", () => openEstimateModal(dealId));
 
+    overlay.querySelectorAll(".edit-estimate-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const est = estimates.find((e) => String(e.id) === btn.dataset.estimateId);
+        if (est) openEstimateModal(dealId, est);
+      });
+    });
+
+    overlay.querySelectorAll(".delete-estimate-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Delete this estimate? This can't be undone.")) return;
+        btn.disabled = true;
+        try {
+          await Api.deleteEstimate(btn.dataset.estimateId);
+          showToast("Estimate deleted");
+          await refreshDealDetail(dealId);
+        } catch (err) {
+          showToast(err.message, true);
+          btn.disabled = false;
+        }
+      });
+    });
+
     overlay.querySelectorAll(".accept-estimate-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
         if (!confirm("Accept this estimate? This moves the deal to Won and creates a job, ready to schedule.")) return;
@@ -497,8 +581,9 @@
     if (newInvBtn) newInvBtn.addEventListener("click", () => openNewInvoiceInlineModal(dealId, jobs, estimates));
   }
 
-  async function openEstimateModal(dealId) {
-    const overlay = buildModal("New Estimate", `
+  async function openEstimateModal(dealId, existingEstimate) {
+    const isEdit = !!existingEstimate;
+    const overlay = buildModal(isEdit ? "Edit Estimate" : "New Estimate", `
       <div class="field" style="margin-bottom:18px;">
         <label>Add From Price List</label>
         <div style="display:flex; gap:8px;">
@@ -509,7 +594,7 @@
       <div class="line-items" id="lineItemsWrap"></div>
       <button class="btn btn-ghost btn-sm" id="addLineItemBtn" style="margin-bottom:16px;"><svg><use href="#icon-plus"/></svg> Add Custom Line Item</button>
       <div class="estimate-total"><span>Total</span><span class="amt" id="estTotalDisplay">$0</span></div>
-      <button class="btn btn-primary" id="saveEstimateBtn" style="width:100%; margin-top:16px;">Save Estimate</button>
+      <button class="btn btn-primary" id="saveEstimateBtn" style="width:100%; margin-top:16px;">${isEdit ? "Save Changes" : "Save Estimate"}</button>
     `);
 
     const wrap = overlay.querySelector("#lineItemsWrap");
@@ -572,7 +657,19 @@
     });
 
     overlay.querySelector("#addLineItemBtn").addEventListener("click", () => addRow());
-    addRow({ type: "labor", label: "Crew labor", qty: 1, rate: 0 });
+
+    // Pre-fill from the existing estimate's line items when editing;
+    // otherwise start with the same sensible default as always. The
+    // deal-detail payload leaves line_items as a raw JSON string (only
+    // the single-estimate endpoint parses it), so handle both shapes.
+    const existingItems = isEdit
+      ? (typeof existingEstimate.line_items === "string" ? JSON.parse(existingEstimate.line_items) : existingEstimate.line_items) || []
+      : [];
+    if (existingItems.length > 0) {
+      existingItems.forEach((item) => addRow(item));
+    } else {
+      addRow({ type: "labor", label: "Crew labor", qty: 1, rate: 0 });
+    }
 
     overlay.querySelector("#saveEstimateBtn").addEventListener("click", async () => {
       const items = Array.from(wrap.querySelectorAll(".line-item-row")).map((row) => ({
@@ -582,8 +679,13 @@
         rate: Number(row.querySelector(".li-rate").value) || 0,
       }));
       try {
-        await Api.createEstimate({ deal_id: dealId, line_items: items });
-        showToast("Estimate saved");
+        if (isEdit) {
+          await Api.updateEstimate(existingEstimate.id, { line_items: items });
+          showToast("Estimate updated");
+        } else {
+          await Api.createEstimate({ deal_id: dealId, line_items: items });
+          showToast("Estimate saved");
+        }
         await refreshDealDetail(dealId);
       } catch (err) {
         showToast(err.message, true);
