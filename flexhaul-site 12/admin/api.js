@@ -98,6 +98,7 @@ const Api = {
 
   createEstimate: (payload) => request("POST", "/estimates", payload),
   updateEstimate: (id, payload) => request("PATCH", `/estimates/${id}`, payload),
+  deleteEstimate: (id) => request("DELETE", `/estimates/${id}`),
   acceptEstimate: (id) => request("POST", `/estimates/${id}/accept`),
 
   listJobs: (params = {}) => {
@@ -139,6 +140,31 @@ const Api = {
     const a = document.createElement("a");
     a.href = url;
     a.download = `FlexHaul-Invoice-${id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  listArchive: () => request("GET", "/archive"),
+  listLostReasons: () => request("GET", "/archive/reasons"),
+
+  // Same auth-header-needs-a-blob-fetch trick as the invoice PDF above.
+  // `path` is the archive sub-route, e.g. "lost.csv" or "completed.csv".
+  downloadArchiveCsv: async (path) => {
+    const token = Auth.getToken();
+    const res = await fetch(`${API_BASE}/archive/${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new ApiError(`Could not download ${path}.`, res.status);
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const match = disposition.match(/filename="([^"]+)"/);
+    const filename = match ? match[1] : path;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
