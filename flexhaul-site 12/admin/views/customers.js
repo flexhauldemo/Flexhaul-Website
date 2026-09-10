@@ -6,6 +6,7 @@
     if (s === undefined || s === null) return "";
     return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
+  function money(n) { return "$" + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 }); }
   const TYPE_LABELS = { homeowner: "Homeowner", gc: "General Contractor", property_manager: "Property Manager", other: "Other" };
 
   async function render(container) {
@@ -122,7 +123,7 @@
   }
 
   async function openCustomerDetail(id) {
-    const { customer, deals, upcoming_jobs, past_jobs, activity } = await Api.getCustomer(id);
+    const { customer, deals, upcoming_jobs, past_jobs, activity, lifetime_value, completed_job_count } = await Api.getCustomer(id);
 
     const stageLabels = { new_lead: "New Lead", quoted: "Quoted", won: "Won", scheduled: "Scheduled", complete: "Complete", invoiced: "Invoiced", lost: "Lost" };
     // Prefer a 'won' deal (needs scheduling) over 'scheduled' (already
@@ -143,6 +144,16 @@
         ${customer.address ? `<div><svg style="width:14px;height:14px;vertical-align:-2px;"><use href="#icon-map-pin"/></svg> ${esc(customer.address)}</div>` : ""}
       </div>
       ${customer.notes ? `<div class="card" style="padding:12px; margin-bottom:16px; font-size:0.9rem;">${esc(customer.notes)}</div>` : ""}
+
+      ${completed_job_count > 0 ? `
+        <div class="card" style="padding:14px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; background:rgba(75,125,74,0.08); border-color:rgba(75,125,74,0.25);">
+          <div>
+            <div style="font-family:var(--font-display); font-weight:700; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--good);">Lifetime Value</div>
+            <div class="small-note">${completed_job_count} completed job${completed_job_count === 1 ? "" : "s"}, paid in full</div>
+          </div>
+          <div style="font-family:var(--font-mono); font-size:1.3rem; font-weight:700;">${money(lifetime_value)}</div>
+        </div>
+      ` : ""}
 
       <div class="flex items-center" style="justify-content:space-between; margin-bottom:10px;">
         <h3 style="font-size:0.85rem; margin:0;">Upcoming Work (${upcoming_jobs.length})</h3>
