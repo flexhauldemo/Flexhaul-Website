@@ -136,7 +136,9 @@
       deals.find((d) => d.stage === "scheduled") ||
       deals.find((d) => d.stage === "complete");
 
-    const overlay = buildModal(esc(customer.name), `
+    const editButtonHtml = `<button class="icon-edit-btn" id="editCustomerFromCustomersBtn" data-customer-id="${customer.id}" title="Edit customer info" style="margin-left:8px;"><svg><use href="#icon-edit-pencil"/></svg></button>`;
+
+    const overlay = buildModal(esc(customer.name) + editButtonHtml, `
       <p class="small-note">${esc(TYPE_LABELS[customer.type] || customer.type)}</p>
       <div style="margin:14px 0; display:flex; flex-direction:column; gap:6px; font-size:0.92rem;">
         ${customer.phone ? `<div><svg style="width:14px;height:14px;vertical-align:-2px;"><use href="#icon-phone"/></svg> ${esc(customer.phone)}</div>` : ""}
@@ -177,6 +179,16 @@
         ${activity.map(a => `<div class="small-note">${esc(a.note)}</div>`).join("") || '<p class="text-dim">No activity yet.</p>'}
       </div>
     `);
+
+    const editCustomerBtn = overlay.querySelector("#editCustomerFromCustomersBtn");
+    if (editCustomerBtn) {
+      editCustomerBtn.addEventListener("click", () => {
+        openEditCustomerModal(editCustomerBtn.dataset.customerId, async () => {
+          await openCustomerDetail(id);
+          await loadList();
+        });
+      });
+    }
 
     // Clicking any job row jumps straight to its full detail (documents,
     // status editing, invoicing) on the Jobs screen.
