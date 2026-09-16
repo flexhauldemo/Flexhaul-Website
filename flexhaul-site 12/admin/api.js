@@ -30,9 +30,13 @@ const Auth = {
 };
 
 class ApiError extends Error {
-  constructor(message, status) {
+  constructor(message, status, body) {
     super(message);
     this.status = status;
+    this.body = body; // parsed JSON response, when there is one — lets a
+    // caller read structured error details (e.g. { field, conflictingCustomer })
+    // beyond just the message string. Existing callers that only ever
+    // read err.message are unaffected.
   }
 }
 
@@ -72,7 +76,7 @@ async function request(method, path, body, opts = {}) {
   }
 
   if (!res.ok) {
-    throw new ApiError((data && data.error) || `Request failed (${res.status})`, res.status);
+    throw new ApiError((data && data.error) || `Request failed (${res.status})`, res.status, data);
   }
   return data;
 }
