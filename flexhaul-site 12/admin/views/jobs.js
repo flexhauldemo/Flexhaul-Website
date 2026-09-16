@@ -213,8 +213,11 @@
 
     const overlay = buildModal(esc(job.customer_name), `
       <div class="card" style="padding:14px; margin-bottom:20px; background:rgba(245,163,0,0.08); border-color:rgba(245,163,0,0.3);">
-        <div style="font-family:var(--font-display); font-weight:700; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--rust); margin-bottom:8px;">Customer</div>
-        <div style="font-size:0.92rem; line-height:1.6;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div style="font-family:var(--font-display); font-weight:700; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--rust);">Customer</div>
+          <button class="icon-edit-btn" id="editCustomerFromJobBtn" data-customer-id="${job.customer_id}" title="Edit customer info"><svg><use href="#icon-edit-pencil"/></svg></button>
+        </div>
+        <div style="font-size:0.92rem; line-height:1.6; margin-top:6px;">
           ${esc(job.customer_phone || "\u2014")}${job.customer_email ? " \u00b7 " + esc(job.customer_email) : ""}<br>
           ${job.customer_address ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.customer_address)}" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-decoration-style:dotted;">${esc(job.customer_address)}</a>` : "No address on file"}
         </div>
@@ -268,6 +271,13 @@
       <h3 style="font-size:0.85rem; margin:20px 0 10px;">Customer History</h3>
       ${historyHtml}
     `);
+
+    const editCustomerBtn = overlay.querySelector("#editCustomerFromJobBtn");
+    if (editCustomerBtn) {
+      editCustomerBtn.addEventListener("click", () => {
+        openEditCustomerModal(editCustomerBtn.dataset.customerId, () => openJobDetail(id));
+      });
+    }
 
     overlay.querySelector("#saveJobDetailBtn").addEventListener("click", async () => {
       try {
