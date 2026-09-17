@@ -242,7 +242,10 @@
       </div>
       <div class="field"><label>Address</label><input type="text" id="jobAddressInput" value="${esc(job.address || "")}"></div>
       <div class="field"><label>Notes</label><textarea id="jobNotesInput">${esc(job.notes || "")}</textarea></div>
-      <button class="btn btn-ghost btn-sm" id="saveJobDetailBtn" style="margin-bottom:20px;">Save Changes</button>
+      <div class="flex gap-8" style="margin-bottom:20px;">
+        <button class="btn btn-ghost btn-sm" id="saveJobDetailBtn" style="flex:1;">Save Changes</button>
+        <button class="btn btn-danger btn-sm" id="deleteJobBtn" style="flex-shrink:0;"><svg><use href="#icon-trash"/></svg> Delete Job</button>
+      </div>
 
       <h3 style="font-size:0.85rem; margin-bottom:10px;">Photos &amp; Documents</h3>
       <div id="docsWrap">${renderDocs(documents)}</div>
@@ -295,6 +298,18 @@
         } else {
           showToast("Job updated");
         }
+        await loadList();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+
+    overlay.querySelector("#deleteJobBtn").addEventListener("click", async () => {
+      if (!confirm(`Delete this job for ${esc(job.customer_name)}? This can't be undone \u2014 any invoice or documents attached to it go too.`)) return;
+      try {
+        await Api.deleteJob(id);
+        showToast("Job deleted");
+        closeModal();
         await loadList();
       } catch (err) {
         showToast(err.message, true);
