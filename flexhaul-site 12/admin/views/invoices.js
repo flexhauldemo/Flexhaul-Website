@@ -72,6 +72,7 @@
                   }
                   <button class="btn btn-ghost btn-sm download-pdf-btn" data-id="${inv.id}"><svg><use href="#icon-download"/></svg> PDF</button>
                   ${inv.status !== "paid" ? `<button class="btn btn-ghost btn-sm copy-invoice-link-btn" data-token="${inv.share_token}">Copy Pay Link</button>` : ""}
+                  ${inv.status !== "paid" ? `<button class="btn btn-danger btn-sm delete-invoice-btn" data-id="${inv.id}" title="Delete this invoice"><svg><use href="#icon-trash"/></svg></button>` : ""}
                 </div>
               </td>
             </tr>
@@ -117,6 +118,19 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         copyShareLink(btn, "invoice.html", btn.dataset.token);
+      });
+    });
+    wrap.querySelectorAll(".delete-invoice-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (!confirm("Delete this invoice? This can't be undone \u2014 useful for clearing out test invoices or duplicates.")) return;
+        try {
+          await Api.deleteInvoice(btn.dataset.id);
+          showToast("Invoice deleted");
+          await loadList();
+        } catch (err) {
+          showToast(err.message, true);
+        }
       });
     });
   }
