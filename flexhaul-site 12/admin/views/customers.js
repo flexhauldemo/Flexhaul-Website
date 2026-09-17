@@ -168,15 +168,22 @@
 
       <h3 style="font-size:0.85rem; margin:20px 0 10px;">Deals (${deals.length})</h3>
       ${deals.length === 0 ? '<p class="text-dim" style="margin-bottom:16px;">No deals yet.</p>' :
-        deals.map(d => `<div class="card" style="padding:12px; margin-bottom:8px; display:flex; justify-content:space-between;">
+        deals.map(d => `<div class="card" style="padding:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
           <span class="badge badge-${d.stage}">${esc(stageLabels[d.stage] || d.stage)}</span>
-          <span style="font-family:var(--font-mono);">$${Number(d.estimated_value||0).toLocaleString()}</span>
+          <span style="font-family:var(--font-mono); flex:1; text-align:right;">$${Number(d.estimated_value||0).toLocaleString()}</span>
+          <button class="btn btn-ghost btn-sm reassign-deal-btn" data-deal-id="${d.id}" data-deal-label="${esc(stageLabels[d.stage] || d.stage)} \u2014 $${Number(d.estimated_value||0).toLocaleString()}" title="Move this deal to a different customer">Move\u2026</button>
         </div>`).join("")
       }
 
       <h3 style="font-size:0.85rem; margin:20px 0 10px;">Activity</h3>
       <div style="display:flex; flex-direction:column; gap:8px;">
         ${activity.map(a => `<div class="small-note">${esc(a.note)}</div>`).join("") || '<p class="text-dim">No activity yet.</p>'}
+      </div>
+
+      <div class="card" style="margin-top:24px; padding:14px; border-color:rgba(224,105,26,0.35);">
+        <div style="font-family:var(--font-display); font-weight:700; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--rust); margin-bottom:8px;">Danger Zone</div>
+        <button class="btn btn-danger btn-sm" id="deleteCustomerBtn" style="width:100%;"><svg><use href="#icon-trash"/></svg> Erase This Customer</button>
+        ${deals.length > 0 ? `<p class="small-note" style="margin-top:8px;">Has ${deals.length} deal${deals.length === 1 ? "" : "s"} attached \u2014 move ${deals.length === 1 ? "it" : "them all"} to another customer above first.</p>` : ""}
       </div>
     `);
 
@@ -189,6 +196,29 @@
         });
       });
     }
+
+    overlay.querySelectorAll(".reassign-deal-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        openReassignModal(id, customer.name, btn.dataset.dealId, btn.dataset.dealLabel, async () => {
+          await openCustomerDetail(id);
+          await loadList();
+        });
+      });
+    });
+
+    overlay.querySelector("#deleteCustomerBtn").addEventListener("click", async () => {
+      if (!confirm(`Permanently erase ${customer.name}'s profile? This can't be undone.`)) return;
+      try {
+        await Api.deleteCustomer(id);
+        showToast("Customer erased");
+        closeModal();
+        await loadList();
+      } catch (err) {
+        // The backend blocks this with a clear count if deals are still
+        // attached — surface that exact message rather than a generic one.
+        showToast(err.message, true);
+      }
+    });
 
     // Clicking any job row jumps straight to its full detail (documents,
     // status editing, invoicing) on the Jobs screen.
@@ -208,6 +238,62 @@
         navigateTo("jobs");
       });
     }
+  }
+
+  // A small search-and-pick modal for moving one deal to a different
+  // customer — the fix for a deal that got created against an
+  // incomplete or duplicate profile. Nothing about the deal's own
+  // history (estimates, jobs, invoices) changes; only whose profile it
+  // sits under.
+  function openReassignModal(sourceCustomerId, sourceCustomerName, dealId, dealLabel, onDone) {
+    const overlay = buildModal("Move This Deal", `
+      <p class="small-note" style="margin-bottom:16px;">${esc(dealLabel)} \u2014 currently under <strong>${esc(sourceCustomerName)}</strong></p>
+      <div class="field">
+        <label>Move to which customer?</label>
+        <input type="search" id="reassignSearch" placeholder="Search name, phone, email\u2026">
+      </div>
+      <div id="reassignResults" style="max-height:280px; overflow-y:auto;"></div>
+    `);
+
+    const resultsEl = overlay.querySelector("#reassignResults");
+    const searchInput = overlay.querySelector("#reassignSearch");
+
+    async function runSearch(q) {
+      if (!q || q.trim().length < 2) {
+        resultsEl.innerHTML = '<p class="text-dim" style="padding:8px 0;">Type at least 2 characters to search.</p>';
+        return;
+      }
+      const { customers } = await Api.listCustomers(q.trim());
+      const matches = customers.filter((c) => String(c.id) !== String(sourceCustomerId));
+      resultsEl.innerHTML = matches.length === 0
+        ? '<p class="text-dim" style="padding:8px 0;">No other customers match.</p>'
+        : matches.map((c) => `
+            <div class="card" style="padding:10px 12px; margin-bottom:6px; cursor:pointer;" data-target-id="${c.id}" data-target-name="${esc(c.name)}">
+              <strong>${esc(c.name)}</strong>
+              <div class="small-note">${esc(c.phone || "\u2014")}${c.email ? " \u00b7 " + esc(c.email) : ""}</div>
+            </div>
+          `).join("");
+      resultsEl.querySelectorAll("[data-target-id]").forEach((card) => {
+        card.addEventListener("click", async () => {
+          if (!confirm(`Move this deal from ${sourceCustomerName} to ${card.dataset.targetName}?`)) return;
+          try {
+            await Api.reassignDeals(sourceCustomerId, { deal_ids: [Number(dealId)], target_customer_id: Number(card.dataset.targetId) });
+            showToast(`Moved to ${card.dataset.targetName}`);
+            closeModal();
+            if (typeof onDone === "function") onDone();
+          } catch (err) {
+            showToast(err.message, true);
+          }
+        });
+      });
+    }
+
+    let debounceTimer;
+    searchInput.addEventListener("input", () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => runSearch(searchInput.value), 250);
+    });
+    searchInput.focus();
   }
 
   function buildModal(title, bodyHtml) {
