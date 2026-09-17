@@ -93,11 +93,15 @@ const Api = {
   getCustomer: (id) => request("GET", `/customers/${id}`),
   createCustomer: (payload) => request("POST", "/customers", payload),
   updateCustomer: (id, payload) => request("PATCH", `/customers/${id}`, payload),
+  deleteCustomer: (id) => request("DELETE", `/customers/${id}`),
+  reassignDeals: (id, payload) => request("POST", `/customers/${id}/reassign-deals`, payload),
 
   listDeals: (stage) => request("GET", `/deals${stage ? `?stage=${encodeURIComponent(stage)}` : ""}`),
   getDeal: (id) => request("GET", `/deals/${id}`),
   createDeal: (payload) => request("POST", "/deals", payload),
   updateDeal: (id, payload) => request("PATCH", `/deals/${id}`, payload),
+  deleteDeal: (id) => request("DELETE", `/deals/${id}`),
+  archiveDealNow: (id) => request("POST", `/deals/${id}/archive-now`),
   resyncDealValues: () => request("POST", "/deals/resync-values"),
 
   createEstimate: (payload) => request("POST", "/estimates", payload),
@@ -112,6 +116,7 @@ const Api = {
   getJob: (id) => request("GET", `/jobs/${id}`),
   createJob: (payload) => request("POST", "/jobs", payload),
   updateJob: (id, payload) => request("PATCH", `/jobs/${id}`, payload),
+  deleteJob: (id) => request("DELETE", `/jobs/${id}`),
 
   listCrews: () => request("GET", "/crews"),
   createCrew: (payload) => request("POST", "/crews", payload),
@@ -126,6 +131,7 @@ const Api = {
   listInvoices: (status) => request("GET", `/invoices${status ? `?status=${encodeURIComponent(status)}` : ""}`),
   createInvoice: (payload) => request("POST", "/invoices", payload),
   updateInvoice: (id, payload) => request("PATCH", `/invoices/${id}`, payload),
+  deleteInvoice: (id) => request("DELETE", `/invoices/${id}`),
 
   listTimeSlots: () => request("GET", "/time-slots"),
   listPriceCatalog: () => request("GET", "/price-catalog"),
