@@ -102,6 +102,12 @@
 
   let collapsedGroups = {}; // persists across re-renders within a session, e.g. after a stage change
 
+  function hoursRemaining(pendingArchiveAt) {
+    if (!pendingArchiveAt) return null;
+    const ms = new Date(pendingArchiveAt.replace(" ", "T") + "Z").getTime() - Date.now();
+    return Math.max(0, Math.ceil(ms / 3600000));
+  }
+
   function dealRow(d) {
     const meta = STAGE_META[d.stage] || STAGE_META.new_lead;
     const isLost = d.stage === "lost";
@@ -112,6 +118,11 @@
           if (i === 5) return `<span class="dot ${filled ? "filled" : ""}" style="--dot-color:${meta.color}"></span>`;
           return `<span class="dot ${filled ? "filled" : ""}" style="--dot-color:${meta.color}"></span><span class="bar ${filled && i < meta.dot ? "filled" : ""}" style="--dot-color:${meta.color}"></span>`;
         }).join("");
+
+    // Only a deal sitting in the 72-hour window (Lost, or paid in full)
+    // gets the Edit control — an open, active deal has nothing to erase
+    // or archive yet.
+    const editBtnHtml = d.pending_archive_at ? `<button type="button" class="btn btn-ghost btn-sm manage-archiving-btn" data-deal-id="${d.id}" style="flex-shrink:0;">Edit</button>` : "";
 
     return `
       <div class="deal-row" data-deal-id="${d.id}">
@@ -127,6 +138,7 @@
             (s) => `<option value="${s.key}" ${s.key === d.stage ? "selected" : ""}>${s.label}</option>`
           ).join("")}
         </select>
+        ${editBtnHtml}
       </div>
     `;
   }
@@ -194,7 +206,7 @@
           openLostReasonModal(dealId, async (reason) => {
             try {
               await Api.updateDeal(dealId, { stage: "lost", lost_reason: reason });
-              showToast("Moved to Lost \u2014 archived, and the estimate was cleared.");
+              showToast("Moved to Lost \u2014 will archive automatically in 72 hours unless erased or moved sooner.");
               await loadBoard();
             } catch (err) {
               showToast(err.message, true);
@@ -216,6 +228,59 @@
         }
       });
     });
+
+    board.querySelectorAll(".manage-archiving-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const deal = lastLoadedDeals.find((d) => String(d.id) === String(btn.dataset.dealId));
+        if (deal) openManageArchivingModal(deal);
+      });
+    });
+  }
+
+  function openManageArchivingModal(deal) {
+    const hoursLeft = hoursRemaining(deal.pending_archive_at);
+    const isLost = deal.stage === "lost";
+    const overlay = buildModal(esc(deal.customer_name), `
+      <p class="small-note" style="margin-bottom:18px;">
+        ${isLost ? "Marked Lost" : "Paid in full"} \u2014 archives automatically in ${hoursLeft === null ? "\u2014" : hoursLeft + " hour" + (hoursLeft === 1 ? "" : "s")} unless you act sooner.
+      </p>
+      <button class="btn btn-ghost" id="viewDetailsBtn" style="width:100%; margin-bottom:10px;">View / Edit Full Details</button>
+      <button class="btn btn-ghost" id="archiveNowBtn" style="width:100%; margin-bottom:10px;">Move to Archive Now</button>
+      ${isLost ? `<button class="btn btn-danger" id="eraseLeadBtn" style="width:100%;"><svg><use href="#icon-trash"/></svg> Erase This Lead</button>` : ""}
+    `);
+
+    overlay.querySelector("#viewDetailsBtn").addEventListener("click", () => {
+      closeModal();
+      openDealDetail(deal.id);
+    });
+
+    overlay.querySelector("#archiveNowBtn").addEventListener("click", async () => {
+      if (!confirm(`Move ${deal.customer_name}'s deal to the Archive now, instead of waiting out the remaining ${hoursLeft || 0} hour(s)?`)) return;
+      try {
+        await Api.archiveDealNow(deal.id);
+        showToast("Moved to Archive.");
+        closeModal();
+        await loadBoard();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+
+    const eraseBtn = overlay.querySelector("#eraseLeadBtn");
+    if (eraseBtn) {
+      eraseBtn.addEventListener("click", async () => {
+        if (!confirm(`Permanently erase this lost lead for ${deal.customer_name}? This can't be undone \u2014 the customer's own profile stays, but this deal and everything under it (estimates, jobs, invoices) is gone for good.`)) return;
+        try {
+          await Api.deleteDeal(deal.id);
+          showToast("Lead erased.");
+          closeModal();
+          await loadBoard();
+        } catch (err) {
+          showToast(err.message, true);
+        }
+      });
+    }
   }
 
   let lastLoadedDeals = [];
