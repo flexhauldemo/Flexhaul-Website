@@ -72,6 +72,7 @@
     const leadConversion = data.lead_source_conversion || [];
     const reviewsDue = data.review_requests_due || [];
     const jobCosting = data.job_costing || { jobs_costed: 0, margin: 0 };
+    const expensesThisMonth = data.expenses_this_month || { total: 0, count: 0 };
     const maxServiceTotal = Math.max(1, ...revByService.map((s) => s.total));
 
     container.innerHTML = `
@@ -117,7 +118,7 @@
         </div>
       </div>
 
-      <div class="grid stat-grid">
+      <div class="grid stat-grid" style="grid-template-columns:repeat(5,1fr);">
         <div class="stat-card"><div class="num">${data.open_deals}</div><div class="lbl">Open Deals</div></div>
         <div class="stat-card"><div class="num">${data.jobs_this_week}</div><div class="lbl">Jobs This Week</div></div>
         <div class="stat-card">
@@ -125,6 +126,10 @@
           <div class="lbl">Overdue Invoices${data.overdue_invoices.count > 0 ? " \u00b7 " + money(data.overdue_invoices.total) : ""}</div>
         </div>
         <div class="stat-card"><div class="num">${reviewsDue.length}</div><div class="lbl">Reviews to Request</div></div>
+        <div class="stat-card">
+          <div class="num" style="${expensesThisMonth.count > 0 ? "" : "color:var(--steel); font-size:1.1rem;"}">${expensesThisMonth.count > 0 ? money(expensesThisMonth.total) : "None logged"}</div>
+          <div class="lbl">Expenses This Month${expensesThisMonth.count > 0 ? ` \u00b7 ${expensesThisMonth.count}` : ""}</div>
+        </div>
       </div>
 
       <div class="grid" style="grid-template-columns:1.3fr 1fr; align-items:start;">
