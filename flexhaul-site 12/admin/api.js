@@ -180,6 +180,38 @@ const Api = {
     a.remove();
     URL.revokeObjectURL(url);
   },
+
+  listExpenseCategories: () => request("GET", "/expenses/categories"),
+  listExpenses: (params = {}) => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
+    return request("GET", `/expenses${qs ? "?" + qs : ""}`);
+  },
+  getExpense: (id) => request("GET", `/expenses/${id}`),
+  // formData is a FormData instance built by the caller — amount, expense_date,
+  // category, vendor, notes, job_id, payment_method as fields, plus an
+  // optional "receipt" file field.
+  createExpense: (formData) => request("POST", "/expenses", formData),
+  updateExpense: (id, formData) => request("PATCH", `/expenses/${id}`, formData),
+  deleteExpense: (id) => request("DELETE", `/expenses/${id}`),
+  downloadExpensesCsv: async (params = {}) => {
+    const token = Auth.getToken();
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v)).toString();
+    const res = await fetch(`${API_BASE}/expenses/export.csv${qs ? "?" + qs : ""}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new ApiError("Could not download expenses.", res.status);
+    const blob = await res.blob();
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const match = disposition.match(/filename="([^"]+)"/);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = match ? match[1] : "expenses.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };
 
 window.Auth = Auth;
